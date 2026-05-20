@@ -1,28 +1,27 @@
-
 1. Criar o container PostgreSQL
 
 Executar o comando abaixo no terminal:
 
-docker run -d --name db_comercial -p 5781:5432 -e POSTGRES_DB=bi_comercial -e POSTGRES_USER=bi_user -e POSTGRES_PASSWORD=bi_pass postgres:16.1
+docker run -d --name db_comercial_db -p 5782:5432 -e POSTGRES_DB=bi_comercial_db -e POSTGRES_USER=bi_user -e POSTGRES_PASSWORD=bi_pass postgres:16.1
 
-Configurações utilizadas:
+Configuracoes utilizadas:
 
-* Container: db_comercial
-* Porta local: 5781
+* Container: db_comercial_db
+* Porta local: 5782
 * Porta interna PostgreSQL: 5432
-* Banco: bi_comercial
-* Usuário: bi_user
+* Banco: bi_comercial_db
+* Usuario: bi_user
 * Senha: bi_pass
 
-2. Verificar se o container está rodando
+2. Verificar se o container esta rodando
 
 Executar:
 
 docker ps
 
-O container db_comercial deve aparecer na lista.
+O container db_comercial_db deve aparecer na lista.
 
-3. Configurar conexão no pgAdmin
+3. Configurar conexao no pgAdmin
 
 Abrir o pgAdmin.
 
@@ -30,33 +29,37 @@ Criar novo servidor:
 Servers > Register > Server
 
 Aba General:
-Name: Postgres Comercial
+Name: Postgres Comercial DB
 
 Aba Connection:
 Host name/address: localhost
-Port: 5781
-Maintenance database: bi_comercial
+Port: 5782
+Maintenance database: bi_comercial_db
 Username: bi_user
 Password: bi_pass
 
-Salvar conexão.
+Salvar conexao.
 
-4. Confirmar conexão
+4. Confirmar conexao
 
-Após salvar, verificar se o banco aparece em:
+Apos salvar, verificar se o banco aparece em:
 
 Servers
-Postgres Comercial
+Postgres Comercial DB
 Databases
-bi_comercial
+bi_comercial_db
 
+5. Criar estrutura inicial do banco
 
+No pgAdmin, conectado ao banco bi_comercial_db, execute:
 
-5. Testar conexão no Flask
+db/init/cria_banco.sql
+
+6. Testar conexao no Flask
 
 python run.py
 
-6. Executar aplicação
+7. Executar aplicacao
 
 python run.py
 
@@ -64,12 +67,12 @@ Abrir navegador:
 http://127.0.0.1:5000
 
 Resultado esperado:
-Banco conectado com sucesso!
+Banco conectado com sucesso.
 
-DADOS FINAIS DE CONEXÃO
+DADOS FINAIS DE CONEXAO
 
 Host: localhost
-Porta: 5781
-Banco: bi_comercial
-Usuário: bi_user
+Porta: 5782
+Banco: bi_comercial_db
+Usuario: bi_user
 Senha: bi_pass

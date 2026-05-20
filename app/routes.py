@@ -83,6 +83,192 @@ def init_routes(app):
             return jsonify({"erro": str(e)}),500
         finally:
             session.close()
+
+
+    @app.route("/produtos_detalhados")
+    def produtos_detalhados():
+        session = get_session()
+        categoria = request.args.get("categoria")
+        try:
+            query, params = bi_queries.get_produtos_detalhados(categoria)
+            result = session.execute(query, params)
+
+            lista_produtos = [
+                {
+                    "produto": row.produto,
+                    "categoria": row.categoria,
+                    "marca": row.marca,
+                    "preco": float(row.preco or 0),
+                    "status": row.status,
+                    "vendidos": int(row.vendidos or 0),
+                    "receita": float(row.receita or 0)
+                }
+                for row in result
+            ]
+
+            return jsonify(lista_produtos)
+        except Exception as e:
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/clientes")
+    def clientes():
+        session = get_session()
+        try:
+            query = bi_queries.get_clientes()
+            result = session.execute(query)
+
+            lista_clientes = [
+                {
+                    "nome": row.nome,
+                    "tipo": row.tipo,
+                    "cidade": row.cidade,
+                    "uf": row.uf,
+                    "cadastro": row.cadastro.isoformat() if row.cadastro else None
+                }
+                for row in result
+            ]
+
+            return jsonify(lista_clientes)
+        except Exception as e:
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/usuarios", methods=["GET"])
+    def listar_usuarios():
+        session = get_session()
+        try:
+            usuarios = bi_queries.get_usuarios(session)
+            session.commit()
+            return jsonify(usuarios)
+        except Exception as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/auth/login", methods=["POST"])
+    def autenticar_usuario():
+        session = get_session()
+        dados = request.get_json(silent=True) or {}
+
+        try:
+            usuario = bi_queries.autenticar_usuario(
+                session,
+                dados.get("id"),
+                dados.get("password")
+            )
+            return jsonify(usuario)
+        except ValueError as e:
+            return jsonify({"erro": str(e)}), 401
+        except Exception as e:
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/usuarios", methods=["POST"])
+    def criar_usuario():
+        session = get_session()
+        dados = request.get_json(silent=True) or {}
+
+        try:
+            usuario = bi_queries.criar_usuario(
+                session,
+                nome=dados.get("name"),
+                email=dados.get("email"),
+                senha=dados.get("password"),
+                perfil=dados.get("roleId"),
+                status=dados.get("status", "Ativo")
+            )
+            session.commit()
+            return jsonify(usuario), 201
+        except ValueError as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 400
+        except Exception as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/usuarios/<user_id>/status", methods=["PATCH"])
+    def atualizar_status_usuario(user_id):
+        session = get_session()
+        dados = request.get_json(silent=True) or {}
+
+        try:
+            usuario = bi_queries.atualizar_status_usuario(
+                session,
+                user_id,
+                dados.get("status")
+            )
+            session.commit()
+            return jsonify(usuario)
+        except ValueError as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 400
+        except Exception as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/usuarios/<user_id>", methods=["DELETE"])
+    def remover_usuario(user_id):
+        session = get_session()
+
+        try:
+            bi_queries.remover_usuario(session, user_id)
+            session.commit()
+            return jsonify({"ok": True})
+        except ValueError as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 404
+        except Exception as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/vendas", methods=["POST"])
+    def criar_venda():
+        session = get_session()
+        dados = request.get_json(silent=True) or {}
+        campos_obrigatorios = ["cliente", "produto", "filial", "quantidade", "data"]
+
+        if any(not dados.get(campo) for campo in campos_obrigatorios):
+            session.close()
+            return jsonify({"erro": "Informe cliente, produto, filial, quantidade e data."}), 400
+
+        try:
+            venda = bi_queries.criar_venda(
+                session=session,
+                cliente=dados.get("cliente"),
+                produto=dados.get("produto"),
+                filial=dados.get("filial"),
+                quantidade=dados.get("quantidade"),
+                desconto=dados.get("desconto"),
+                data_venda=dados.get("data")
+            )
+            session.commit()
+            return jsonify(venda), 201
+        except ValueError as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 400
+        except Exception as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
         
 
     @app.route("/categorias")

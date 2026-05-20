@@ -45,6 +45,20 @@ CREATE TABLE comercial.dim_cliente (
     data_cadastro DATE NOT NULL
 );
 
+CREATE TABLE comercial.app_usuario (
+    id_usuario SERIAL PRIMARY KEY,
+    nome VARCHAR(120) NOT NULL,
+    email VARCHAR(120) NOT NULL UNIQUE,
+    senha VARCHAR(120) NOT NULL,
+    perfil VARCHAR(30) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Ativo',
+    criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (perfil IN ('administrador', 'gerente', 'vendedor', 'analista')),
+    CHECK (status IN ('Ativo', 'Inativo')),
+    CHECK (LENGTH(nome) >= 3),
+    CHECK (LENGTH(senha) >= 6)
+);
+
 CREATE TABLE comercial.fato_vendas (
     id_venda BIGSERIAL PRIMARY KEY,
     id_data INT NOT NULL REFERENCES comercial.dim_calendario(id_data),
@@ -151,6 +165,12 @@ SELECT
     CURRENT_DATE - ((RANDOM() * 1000)::INT)
 FROM generate_series(1, 500) AS gs;
 
+INSERT INTO comercial.app_usuario (nome, email, senha, perfil, status) VALUES
+('Marina Costa', 'admin@aurora.local', 'admin123', 'administrador', 'Ativo'),
+('Rafael Lima', 'gerente@aurora.local', 'gerente123', 'gerente', 'Ativo'),
+('Bianca Alves', 'vendedor@aurora.local', 'vendedor123', 'vendedor', 'Ativo'),
+('Lucas Pereira', 'analista@aurora.local', 'analista123', 'analista', 'Ativo');
+
 INSERT INTO comercial.fato_vendas (
     id_data, id_filial, id_cliente, numero_pedido,
     forma_pagamento, status_venda, valor_bruto, desconto, valor_liquido
@@ -216,6 +236,8 @@ CREATE INDEX idx_itens_venda ON comercial.fato_itens_venda(id_venda);
 CREATE INDEX idx_itens_produto ON comercial.fato_itens_venda(id_produto);
 CREATE INDEX idx_produto_categoria ON comercial.dim_produto(id_categoria);
 CREATE INDEX idx_calendario_data ON comercial.dim_calendario(data_completa);
+CREATE INDEX idx_app_usuario_perfil ON comercial.app_usuario(perfil);
+CREATE INDEX idx_app_usuario_status ON comercial.app_usuario(status);
 
 CREATE MATERIALIZED VIEW comercial.vm_kpis_comercial_mensal AS
 SELECT

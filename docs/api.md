@@ -28,9 +28,44 @@ Resposta de erro:
 
 ## Endpoints de Interface
 
+### `GET /login`
+
+Renderiza `login.html`. Se já houver usuário em sessão, redireciona para `/`.
+
 ### `GET /`
 
-Renderiza `base.html`.
+Renderiza `base.html`. Requer sessão ativa; caso contrário, redireciona para `/login`.
+
+### `GET /logout`
+
+Limpa a sessão Flask e redireciona para `/login`.
+
+## Autenticação e Sessão
+
+Com exceção de `/login` e `/auth/login`, os endpoints usados pela interface exigem sessão ativa. Quando a sessão expira, a API retorna:
+
+```json
+{
+  "erro": "Sessao expirada. Faca login novamente."
+}
+```
+
+com status `401`.
+
+### `GET /auth/me`
+
+Retorna o usuário autenticado na sessão.
+
+```json
+{
+  "id": "u-1",
+  "dbId": 1,
+  "name": "Admin Comercial",
+  "email": "admin@aurora.local",
+  "roleId": "admin_comercial",
+  "status": "Ativo"
+}
+```
 
 ## Endpoints de Filtros
 
@@ -88,16 +123,16 @@ Retorna clientes.
 
 ### `GET /usuarios`
 
-Lista usuários da aplicação.
+Lista usuários da aplicação. Requer permissão `usuarios:gerenciar`.
 
 ```json
 [
   {
     "id": "u-1",
     "dbId": 1,
-    "name": "Marina Costa",
+    "name": "Admin Comercial",
     "email": "admin@aurora.local",
-    "roleId": "administrador",
+    "roleId": "admin_comercial",
     "status": "Ativo"
   }
 ]
@@ -105,13 +140,13 @@ Lista usuários da aplicação.
 
 ### `POST /auth/login`
 
-Autentica usuário.
+Autentica usuário por e-mail e senha. Aceita JSON ou formulário HTML, cria sessão Flask e retorna JSON quando a requisição é JSON.
 
 Request:
 
 ```json
 {
-  "id": "u-1",
+  "email": "admin@aurora.local",
   "password": "admin123"
 }
 ```
@@ -122,16 +157,29 @@ Response:
 {
   "id": "u-1",
   "dbId": 1,
-  "name": "Marina Costa",
+  "name": "Admin Comercial",
   "email": "admin@aurora.local",
-  "roleId": "administrador",
+  "roleId": "admin_comercial",
   "status": "Ativo"
+}
+```
+
+### `POST /auth/login-perfil`
+
+Troca o usuário da sessão a partir de id e senha. É usado apenas dentro da aplicação e exige sessão ativa.
+
+Request:
+
+```json
+{
+  "id": "u-2",
+  "password": "gerente123"
 }
 ```
 
 ### `POST /usuarios`
 
-Cria usuário.
+Cria usuário. Requer permissão `usuarios:criar`.
 
 Request:
 
@@ -140,7 +188,7 @@ Request:
   "name": "Novo Usuario",
   "email": "novo@aurora.local",
   "password": "senha123",
-  "roleId": "analista",
+  "roleId": "leitura_comercial",
   "status": "Ativo"
 }
 ```
@@ -156,7 +204,7 @@ Validações:
 
 ### `PATCH /usuarios/<id>/status`
 
-Atualiza status.
+Atualiza status. Requer permissão `usuarios:editar`.
 
 ```json
 {
@@ -164,19 +212,19 @@ Atualiza status.
 }
 ```
 
-Regra: não é permitido inativar o último administrador ativo.
+Regra: não é permitido inativar o último `admin_comercial` ativo.
 
 ### `DELETE /usuarios/<id>`
 
-Remove usuário.
+Remove usuário. Requer permissão `usuarios:remover`.
 
-Regra: não é permitido remover o último administrador ativo.
+Regra: não é permitido remover o último `admin_comercial` ativo.
 
 ## Endpoints de Venda
 
 ### `POST /vendas`
 
-Cadastra venda.
+Cadastra venda. Requer permissão `vendas:criar`.
 
 Request:
 

@@ -17,7 +17,8 @@ projeto-comercial-DB/
 │   │   └── js/
 │   │       └── script.js
 │   └── templates/
-│       └── base.html
+│       ├── base.html
+│       └── login.html
 ├── db/
 │   ├── init/
 │   │   └── cria_banco.sql
@@ -69,6 +70,7 @@ Templates Flask/Jinja.
 | Arquivo | Função |
 |---|---|
 | `base.html` | Estrutura base da aplicação. |
+| `login.html` | Tela de autenticação por e-mail e senha. |
 
 ## `db/`
 

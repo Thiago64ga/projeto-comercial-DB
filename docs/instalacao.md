@@ -78,9 +78,14 @@ DB_PORT=5782
 DB_NAME=bi_comercial_db
 DB_USER=bi_user
 DB_PASSWORD=bi_pass
+SECRET_KEY=dev-secret-key
 ```
 
 ## Executar Script SQL
+
+Em uma instalação nova com volume Docker vazio, o `docker-compose.yml` já monta `db/init/cria_banco.sql` em `/docker-entrypoint-initdb.d/01-cria_banco.sql`, então o PostgreSQL executa o script automaticamente na primeira inicialização.
+
+Execute manualmente apenas se o volume já existia antes desta configuração, se estiver usando PostgreSQL local fora do Docker, ou se precisar recriar a base.
 
 No pgAdmin:
 
@@ -111,10 +116,10 @@ http://127.0.0.1:5000/
 
 | Perfil | Email | Senha |
 |---|---|---|
-| Administrador | `admin@aurora.local` | `admin123` |
-| Gerente | `gerente@aurora.local` | `gerente123` |
-| Vendedor | `vendedor@aurora.local` | `vendedor123` |
-| Analista | `analista@aurora.local` | `analista123` |
+| Admin Comercial | `admin@aurora.local` | `admin123` |
+| Gerente Comercial | `gerente@aurora.local` | `gerente123` |
+| Operador Comercial | `operador@aurora.local` | `operador123` |
+| Leitura Comercial | `leitura@aurora.local` | `leitura123` |
 
 ## Solução de Erros Comuns
 

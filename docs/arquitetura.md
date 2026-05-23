@@ -14,7 +14,7 @@ O Rede Comercial Aurora BI é uma aplicação web monolítica em Flask, com fron
 | Banco | `app/db.py` | Cria engine SQLAlchemy e sessões. |
 | Rotas | `app/routes.py` | Controllers HTTP e serialização JSON. |
 | Services | `app/services/bi_queries.py` | Queries SQL, regras de validação e operações de escrita. |
-| Template | `app/templates/base.html` | Estrutura HTML da interface. |
+| Templates | `app/templates/base.html`, `app/templates/login.html` | Interface principal e tela de autenticação. |
 | Frontend | `app/static/js/script.js` | Estado da interface, chamadas API, permissões e gráficos. |
 | Estilos | `app/static/css/style.css` | Layout, componentes, responsividade e aparência visual. |
 | Banco SQL | `db/init/cria_banco.sql` | DDL, DML, índices, views e usuários iniciais. |
@@ -26,6 +26,7 @@ O Rede Comercial Aurora BI é uma aplicação web monolítica em Flask, com fron
 flowchart TB
     subgraph Client["Cliente"]
         Browser["Navegador"]
+        Login["login.html"]
         HTML["base.html"]
         CSS["style.css"]
         JS["script.js"]
@@ -46,6 +47,7 @@ flowchart TB
         View["vm_kpis_comercial_mensal"]
     end
 
+    Browser --> Login
     Browser --> HTML
     HTML --> CSS
     HTML --> JS
@@ -118,19 +120,21 @@ Características:
 ```mermaid
 sequenceDiagram
     participant U as Usuário
-    participant UI as Role Bar
+    participant UI as Login
     participant API as /auth/login
     participant DB as app_usuario
 
-    U->>UI: Seleciona usuário e informa senha
+    U->>UI: Informa e-mail e senha
     UI->>API: POST /auth/login
-    API->>DB: Busca id + senha
+    API->>DB: Busca e-mail + senha
     DB-->>API: Usuário encontrado
+    API->>API: Grava usuário na sessão Flask
+    API-->>UI: Redireciona para /
+    UI->>API: GET /auth/me
     API-->>UI: Dados do usuário sem senha
-    UI->>UI: Atualiza perfil ativo e permissões visuais
 ```
 
-Observação: a autenticação atual é funcional para o escopo do projeto, mas ainda não cria sessão server-side. O controle de telas é feito no frontend.
+Observação: a autenticação atual usa sessão Flask. O frontend filtra as telas visualmente e o backend valida sessão e permissões nas ações sensíveis.
 
 ## Fluxo de Permissões
 
@@ -181,10 +185,12 @@ As rotas estão em `app/routes.py` e funcionam como controllers:
 
 - alerta de banco indisponível;
 - sidebar;
-- Role Bar;
+- painel de sessão;
 - navegação principal;
 - filtros globais;
 - área dinâmica `#viewRoot`.
+
+`login.html` define o formulário de entrada por e-mail e senha.
 
 `script.js` injeta os conteúdos de tela em `#viewRoot`.
 
@@ -199,9 +205,9 @@ As rotas estão em `app/routes.py` e funcionam como controllers:
 
 ## Pontos de Evolução Arquitetural
 
-- Adicionar autenticação server-side com sessões.
+- Evoluir autenticação para Flask-Login ou sessão server-side.
 - Criar camada repository para separar SQL de regras.
 - Usar migrations com Alembic.
 - Implementar testes automatizados.
-- Proteger permissões também no backend.
+- Ampliar permissões backend para todos os endpoints analíticos se necessário.
 - Remover dependência de CDN em ambientes restritos.

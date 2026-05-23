@@ -4,25 +4,25 @@
 
 O sistema possui quatro perfis funcionais:
 
-- Administrador
-- Gerente
-- Vendedor
-- Analista
+- Admin Comercial (`admin_comercial`)
+- Gerente Comercial (`gerente_comercial`)
+- Operador Comercial (`operador_comercial`)
+- Leitura Comercial (`leitura_comercial`)
 
-As permissões são declaradas no frontend em `roleProfiles`, dentro de `app/static/js/script.js`. Os usuários da aplicação são persistidos no banco na tabela `comercial.app_usuario`.
+As permissões são declaradas no frontend em `roleProfiles`, dentro de `app/static/js/script.js`, e as ações sensíveis também são validadas no backend em `ROLE_PERMISSIONS`, dentro de `app/routes.py`. Os usuários da aplicação são persistidos no banco na tabela `comercial.app_usuario`.
 
 ## Usuários Padrão
 
 | Perfil | Email | Senha | Status |
 |---|---|---|---|
-| Administrador | `admin@aurora.local` | `admin123` | Ativo |
-| Gerente | `gerente@aurora.local` | `gerente123` | Ativo |
-| Vendedor | `vendedor@aurora.local` | `vendedor123` | Ativo |
-| Analista | `analista@aurora.local` | `analista123` | Ativo |
+| Admin Comercial | `admin@aurora.local` | `admin123` | Ativo |
+| Gerente Comercial | `gerente@aurora.local` | `gerente123` | Ativo |
+| Operador Comercial | `operador@aurora.local` | `operador123` | Ativo |
+| Leitura Comercial | `leitura@aurora.local` | `leitura123` | Ativo |
 
 ## Perfis
 
-### Administrador
+### Admin Comercial
 
 Permissões completas:
 
@@ -35,22 +35,19 @@ Permissões completas:
 - remover usuários;
 - visualizar matriz de permissões.
 
-### Gerente
+### Gerente Comercial
 
 Permissões:
 
 - visualizar dashboards;
 - visualizar produtos, clientes, filiais e vendas;
-- gerenciar usuários;
-- criar usuários;
-- remover usuários;
 - visualizar relatórios.
 
 Restrição:
 
-- não possui permissão explícita para editar status no mapa atual do frontend.
+- não gerencia usuários e não cadastra vendas na matriz atual.
 
-### Vendedor
+### Operador Comercial
 
 Permissões:
 
@@ -62,9 +59,9 @@ Permissões:
 
 Restrição atual:
 
-- o frontend reduz visualmente a visão de vendas para um recorte, mas não há filtro backend por vendedor autenticado.
+- o frontend reduz visualmente a visão de vendas para um recorte, mas não há filtro backend por operador autenticado.
 
-### Analista
+### Leitura Comercial
 
 Permissões:
 
@@ -80,7 +77,7 @@ Restrições:
 
 ## Matriz de Permissões
 
-| Tela/Função | Administrador | Gerente | Vendedor | Analista |
+| Tela/Função | Admin Comercial | Gerente Comercial | Operador Comercial | Leitura Comercial |
 |---|---:|---:|---:|---:|
 | Dashboard geral | Sim | Sim | Não | Sim |
 | Dashboard de vendas | Sim | Sim | Sim | Sim |
@@ -89,29 +86,30 @@ Restrições:
 | Nova venda | Sim | Não | Sim | Não |
 | Produtos | Sim | Sim | Sim | Sim |
 | Clientes | Sim | Sim | Sim | Sim |
-| Gerenciar usuários | Sim | Sim | Não | Não |
-| Criar usuário | Sim | Sim | Não | Não |
+| Gerenciar usuários | Sim | Não | Não | Não |
+| Criar usuário | Sim | Não | Não | Não |
 | Editar usuário | Sim | Não | Não | Não |
-| Remover usuário | Sim | Sim | Não | Não |
+| Remover usuário | Sim | Não | Não | Não |
 | Permissões | Sim | Não | Não | Não |
 | Relatórios | Sim | Sim | Não | Sim |
 
-## Fluxo da Troca de Usuário
+## Fluxo de Login
 
 ```mermaid
 sequenceDiagram
     participant U as Usuário
-    participant UI as Role Bar
+    participant UI as Login
     participant API as Flask
     participant DB as app_usuario
 
-    U->>UI: Seleciona usuário
-    U->>UI: Digita senha
+    U->>UI: Informa e-mail e senha
     UI->>API: POST /auth/login
-    API->>DB: Valida id + senha
+    API->>DB: Valida e-mail + senha
     DB-->>API: Usuário ativo
-    API-->>UI: Dados do usuário
-    UI->>UI: Atualiza perfil e permissões
+    API->>API: Grava usuário na sessão Flask
+    API-->>UI: Redireciona para /
+    UI->>API: GET /auth/me
+    API-->>UI: Dados do usuário logado
 ```
 
 ## Controle de Telas
@@ -144,41 +142,44 @@ const canRemove = can("usuarios:remover");
 
 O backend valida:
 
+- sessão ativa para endpoints da API;
+- permissão por perfil nas ações de usuários e cadastro de venda;
 - nome mínimo de usuário;
 - email em formato válido;
 - email único;
 - senha mínima;
 - perfil permitido;
 - status permitido;
-- bloqueio de inativação do último administrador ativo;
-- bloqueio de remoção do último administrador ativo.
+- bloqueio de inativação do último `admin_comercial` ativo;
+- bloqueio de remoção do último `admin_comercial` ativo.
 
 ## Proteção de Rotas
 
 Estado atual:
 
-- as rotas existem e validam dados;
-- a autorização fina por perfil ainda não é aplicada no backend;
-- o controle principal de acesso é visual no frontend.
+- `/` exige sessão e redireciona usuários não autenticados para `/login`;
+- endpoints de API usam `api_login_required`;
+- ações sensíveis retornam `403` quando o perfil não possui permissão;
+- a navegação continua filtrada visualmente no frontend.
 
 Melhoria recomendada:
 
-- adicionar sessão Flask;
-- criar decorator `@require_permission`;
-- validar usuário logado antes de mutações;
+- evoluir para `Flask-Login` ou sessão server-side;
+- consolidar um decorator `@require_permission`;
+- ampliar permissões backend para consultas analíticas se necessário;
 - armazenar senha com hash.
 
 ## Middleware
 
-Não há middleware customizado de autenticação. O handler global existente trata `OperationalError` de banco.
+O projeto usa decorators locais em `routes.py` para sessão e autorização. O handler global existente trata `OperationalError` de banco.
 
 ## DCL do PostgreSQL
 
-O script de banco pode conter roles PostgreSQL como:
+O script de banco cria roles PostgreSQL:
 
 - `admin_comercial`;
 - `gerente_comercial`;
 - `operador_comercial`;
 - `leitura_comercial`.
 
-Essas roles controlam permissões no banco, enquanto `app_usuario` controla perfis da aplicação.
+Essas roles controlam permissões no banco. A tabela `app_usuario` controla os perfis da aplicação e usa os mesmos identificadores.

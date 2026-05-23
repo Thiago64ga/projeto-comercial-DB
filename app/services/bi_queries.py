@@ -4,7 +4,7 @@ from app.db import get_session
 from datetime import datetime
 import re
 
-PERFIS_VALIDOS = {"administrador", "gerente", "vendedor", "analista"}
+PERFIS_VALIDOS = {"admin_comercial", "gerente_comercial", "operador_comercial", "leitura_comercial"}
 STATUS_USUARIO_VALIDOS = {"Ativo", "Inativo"}
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -130,21 +130,71 @@ def garantir_tabela_usuarios(session):
             perfil VARCHAR(30) NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'Ativo',
             criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CHECK (perfil IN ('administrador', 'gerente', 'vendedor', 'analista')),
+            CHECK (perfil IN ('admin_comercial', 'gerente_comercial', 'operador_comercial', 'leitura_comercial')),
             CHECK (status IN ('Ativo', 'Inativo')),
             CHECK (LENGTH(nome) >= 3),
             CHECK (LENGTH(senha) >= 6)
         )
+    """))
+    session.execute(text("""
+        DO $$
+        DECLARE
+            constraint_name text;
+        BEGIN
+            FOR constraint_name IN
+                SELECT con.conname
+                FROM pg_constraint con
+                JOIN pg_class rel ON rel.oid = con.conrelid
+                JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                WHERE nsp.nspname = 'comercial'
+                  AND rel.relname = 'app_usuario'
+                  AND con.contype = 'c'
+                  AND pg_get_constraintdef(con.oid) LIKE '%administrador%'
+            LOOP
+                EXECUTE format('ALTER TABLE comercial.app_usuario DROP CONSTRAINT %I', constraint_name);
+            END LOOP;
+
+        END $$;
+    """))
+    session.execute(text("""
+        UPDATE comercial.app_usuario
+        SET perfil = CASE perfil
+            WHEN 'administrador' THEN 'admin_comercial'
+            WHEN 'gerente' THEN 'gerente_comercial'
+            WHEN 'vendedor' THEN 'operador_comercial'
+            WHEN 'analista' THEN 'leitura_comercial'
+            ELSE perfil
+        END
+        WHERE perfil IN ('administrador', 'gerente', 'vendedor', 'analista')
+    """))
+    session.execute(text("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint con
+                JOIN pg_class rel ON rel.oid = con.conrelid
+                JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                WHERE nsp.nspname = 'comercial'
+                  AND rel.relname = 'app_usuario'
+                  AND con.contype = 'c'
+                  AND pg_get_constraintdef(con.oid) LIKE '%admin_comercial%'
+            ) THEN
+                ALTER TABLE comercial.app_usuario
+                ADD CONSTRAINT app_usuario_perfil_check
+                CHECK (perfil IN ('admin_comercial', 'gerente_comercial', 'operador_comercial', 'leitura_comercial'));
+            END IF;
+        END $$;
     """))
 
     total = session.execute(text("SELECT COUNT(*) FROM comercial.app_usuario")).scalar_one()
     if total == 0:
         session.execute(text("""
             INSERT INTO comercial.app_usuario (nome, email, senha, perfil, status) VALUES
-            ('Marina Costa', 'admin@aurora.local', 'admin123', 'administrador', 'Ativo'),
-            ('Rafael Lima', 'gerente@aurora.local', 'gerente123', 'gerente', 'Ativo'),
-            ('Bianca Alves', 'vendedor@aurora.local', 'vendedor123', 'vendedor', 'Ativo'),
-            ('Lucas Pereira', 'analista@aurora.local', 'analista123', 'analista', 'Ativo')
+            ('Admin Comercial', 'admin@aurora.local', 'admin123', 'admin_comercial', 'Ativo'),
+            ('Gerente Comercial', 'gerente@aurora.local', 'gerente123', 'gerente_comercial', 'Ativo'),
+            ('Operador Comercial', 'operador@aurora.local', 'operador123', 'operador_comercial', 'Ativo'),
+            ('Leitura Comercial', 'leitura@aurora.local', 'leitura123', 'leitura_comercial', 'Ativo')
         """))
 
 def get_usuarios(session):
@@ -172,6 +222,27 @@ def autenticar_usuario(session, user_id, senha):
 
     if not row:
         raise ValueError("Senha incorreta.")
+    if row.status != "Ativo":
+        raise ValueError("Acesso negado. Usuario inativo.")
+
+    return normalizar_usuario(row)
+
+def autenticar_usuario_por_email(session, email, senha):
+    garantir_tabela_usuarios(session)
+    email = (email or "").strip().lower()
+
+    row = session.execute(
+        text("""
+            SELECT id_usuario, nome, email, perfil, status
+            FROM comercial.app_usuario
+            WHERE email = :email
+              AND senha = :senha
+        """),
+        {"email": email, "senha": senha}
+    ).fetchone()
+
+    if not row:
+        raise ValueError("Email ou senha incorretos.")
     if row.status != "Ativo":
         raise ValueError("Acesso negado. Usuario inativo.")
 
@@ -226,11 +297,11 @@ def atualizar_status_usuario(session, user_id, status):
     if not usuario_atual:
         raise ValueError("Usuario nao encontrado.")
 
-    if usuario_atual.perfil == "administrador" and usuario_atual.status == "Ativo" and status == "Inativo":
+    if usuario_atual.perfil == "admin_comercial" and usuario_atual.status == "Ativo" and status == "Inativo":
         admins_ativos = session.execute(text("""
             SELECT COUNT(*)
             FROM comercial.app_usuario
-            WHERE perfil = 'administrador'
+            WHERE perfil = 'admin_comercial'
               AND status = 'Ativo'
         """)).scalar_one()
 
@@ -267,11 +338,11 @@ def remover_usuario(session, user_id):
     if not usuario_atual:
         raise ValueError("Usuario nao encontrado.")
 
-    if usuario_atual.perfil == "administrador" and usuario_atual.status == "Ativo":
+    if usuario_atual.perfil == "admin_comercial" and usuario_atual.status == "Ativo":
         admins_ativos = session.execute(text("""
             SELECT COUNT(*)
             FROM comercial.app_usuario
-            WHERE perfil = 'administrador'
+            WHERE perfil = 'admin_comercial'
               AND status = 'Ativo'
         """)).scalar_one()
 

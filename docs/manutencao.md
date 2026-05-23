@@ -62,7 +62,7 @@ def minha_rota():
 1. Adicione permissão ao perfil:
 
 ```javascript
-roleProfiles.administrador.permissions.push("nova:tela");
+roleProfiles.admin_comercial.permissions.push("nova:tela");
 ```
 
 2. Adicione tela:
@@ -83,7 +83,7 @@ const renderers = {
 
 Via interface:
 
-1. Autentique como Administrador ou Gerente.
+1. Autentique como Admin Comercial.
 2. Abra "Gerenciar Usuários".
 3. Preencha nome, email, senha, perfil e status.
 4. Clique em cadastrar.
@@ -92,7 +92,7 @@ Via SQL:
 
 ```sql
 INSERT INTO comercial.app_usuario (nome, email, senha, perfil, status)
-VALUES ('Nome', 'email@dominio.com', 'senha123', 'analista', 'Ativo');
+VALUES ('Nome', 'email@dominio.com', 'senha123', 'leitura_comercial', 'Ativo');
 ```
 
 ## Como Adicionar Gráfico
@@ -132,7 +132,7 @@ Padrão recomendado:
 - tratar credenciais no `.env`;
 - nunca expor chaves no frontend;
 - normalizar resposta no service;
-- adicionar fallback e tratamento de erro.
+- adicionar tratamento de erro coerente com o aviso de banco/API indisponível.
 
 ## Como Expandir o Banco
 
@@ -152,14 +152,14 @@ Melhoria recomendada: usar Alembic para migrations incrementais.
 - Atualizar documentação junto com mudanças.
 - Evitar lógica duplicada no frontend.
 - Criar testes para novas rotas.
-- Validar permissões no backend em evoluções futuras.
+- Manter permissões do frontend e backend sincronizadas.
 
 ## Dívidas Técnicas Conhecidas
 
 | Item | Risco | Ação recomendada |
 |---|---|---|
 | Senhas em texto puro | Alto | Implementar hash. |
-| Permissão só no frontend | Alto | Criar autorização backend. |
+| Matriz de permissões duplicada | Médio | Centralizar ou sincronizar permissões entre frontend e backend. |
 | Sem migrations | Médio | Adotar Alembic. |
 | Chart.js via CDN | Médio | Empacotar dependência. |
 | Sem testes | Médio | Adicionar pytest e testes JS. |

@@ -15,7 +15,7 @@
             hidden
         {% endif %}
     >
-        Conexao com o banco indisponivel. A interface esta usando dados demonstrativos.
+        Conexao com o banco indisponivel. Verifique o PostgreSQL para carregar os dados.
     </div>
 
     <div class="app-shell">
@@ -30,16 +30,14 @@
 
             <section class="role-panel" aria-labelledby="role-title">
                 <div>
-                    <span class="eyebrow">Role Bar</span>
-                    <h2 id="role-title">Barra de Perfis</h2>
+                    <span class="eyebrow">Sessao</span>
+                    <h2 id="role-title">Usuario logado</h2>
                 </div>
-                <label for="roleSelect">Usuario atual</label>
-                <select id="roleSelect"></select>
-                <label for="rolePassword">Senha</label>
-                <input type="password" id="rolePassword" placeholder="Senha do usuario selecionado">
-                <button id="btnTrocarUsuario" type="button">Entrar no perfil</button>
-                <p id="roleMessage" class="role-message" aria-live="polite"></p>
-                <p id="roleDescription"></p>
+                <p id="roleDescription">
+                    {{ usuario.name }}<br>
+                    <strong>{{ usuario.roleId }}</strong>
+                </p>
+                <a class="logout-button" href="/logout">Sair</a>
             </section>
 
             <nav id="mainNav" class="main-nav" aria-label="Telas do sistema"></nav>

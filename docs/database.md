@@ -29,6 +29,7 @@ Entidades principais:
 - Venda
 - Item de venda
 - View analítica mensal
+- View resumida de vendas para leitura controlada
 
 ```mermaid
 erDiagram
@@ -114,7 +115,7 @@ Tabela de usuários da aplicação.
 | `nome` | VARCHAR(120) | NOT NULL, mínimo 3 caracteres |
 | `email` | VARCHAR(120) | NOT NULL, UNIQUE |
 | `senha` | VARCHAR(120) | NOT NULL, mínimo 6 caracteres |
-| `perfil` | VARCHAR(30) | `administrador`, `gerente`, `vendedor`, `analista` |
+| `perfil` | VARCHAR(30) | `admin_comercial`, `gerente_comercial`, `operador_comercial`, `leitura_comercial` |
 | `status` | VARCHAR(20) | `Ativo` ou `Inativo` |
 | `criado_em` | TIMESTAMP | DEFAULT `CURRENT_TIMESTAMP` |
 
@@ -165,6 +166,38 @@ Métricas:
 | `margem_bruta` | Receita líquida menos custo total |
 | `margem_bruta_percentual` | Margem bruta / receita líquida |
 | `ticket_medio` | Receita líquida / número de vendas |
+
+## Views
+
+### `comercial.vw_resumo_vendas`
+
+View de leitura com resumo das vendas, unindo fato de vendas, calendário, filial e cliente.
+
+Campos principais:
+
+- `id_venda`
+- `data_completa`
+- `nome_filial`
+- `nome_cliente`
+- `numero_pedido`
+- `forma_pagamento`
+- `status_venda`
+- `valor_bruto`
+- `desconto`
+- `valor_liquido`
+
+Ela é usada como superfície controlada para a role PostgreSQL `leitura_comercial`.
+
+## Roles PostgreSQL
+
+O script cria quatro roles de banco alinhadas aos perfis da aplicação:
+
+| Role | Permissões principais |
+|---|---|
+| `admin_comercial` | Todos os privilégios no schema, tabelas e sequências. |
+| `gerente_comercial` | `USAGE` no schema e `SELECT` em todas as tabelas. |
+| `operador_comercial` | `SELECT`, `INSERT` e `UPDATE` em tabelas; `USAGE` e `SELECT` em sequências. |
+| `leitura_comercial` | `SELECT` em `vw_resumo_vendas` e `vm_kpis_comercial_mensal`; sem escrita. |
 
 ## Índices
 
@@ -291,6 +324,10 @@ REFRESH MATERIALIZED VIEW comercial.vm_kpis_comercial_mensal;
 | Categoria | `vm_kpis_comercial_mensal` agrupada por categoria |
 | Produtos | `dim_produto`, `dim_categoria` e view de KPIs |
 | Clientes | `dim_cliente` |
+
+## Inicialização Docker
+
+O `docker-compose.yml` monta `db/init/cria_banco.sql` em `/docker-entrypoint-initdb.d/01-cria_banco.sql`. Em volumes novos, o PostgreSQL executa o script automaticamente na primeira inicialização do container.
 
 ## Melhorias Futuras
 

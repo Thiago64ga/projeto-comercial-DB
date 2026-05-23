@@ -13,6 +13,7 @@ services:
       - "5782:5432"
     volumes:
       - db_comercial_db_data:/var/lib/postgresql/data
+      - ../../db/init/cria_banco.sql:/docker-entrypoint-initdb.d/01-cria_banco.sql:ro
 
 volumes:
   db_comercial_db_data:

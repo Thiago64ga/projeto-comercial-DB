@@ -38,6 +38,7 @@ python run.py
 | `DB_NAME` | Nome do banco. |
 | `DB_USER` | Usuário do banco. |
 | `DB_PASSWORD` | Senha do banco. |
+| `SECRET_KEY` | Chave usada pela sessão Flask. |
 
 Exemplo produção:
 
@@ -47,6 +48,7 @@ DB_PORT=5432
 DB_NAME=bi_comercial_db
 DB_USER=bi_user
 DB_PASSWORD=senha-forte
+SECRET_KEY=gere-uma-chave-longa-e-segura
 ```
 
 ## Deploy Linux com Gunicorn
@@ -120,7 +122,7 @@ Recomendações:
 - Usar HTTPS.
 - Remover senhas padrão.
 - Implementar hash de senha.
-- Proteger rotas por sessão/token.
+- Manter rotas protegidas por sessão e evoluir para Flask-Login ou sessão server-side se necessário.
 - Manter dependências atualizadas.
 - Não versionar `.env` real de produção.
 

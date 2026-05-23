@@ -2,12 +2,13 @@
 
 ## Visão Geral
 
-O frontend é uma single page interface construída com HTML, CSS e JavaScript puro. O Flask entrega `base.html`, e `script.js` controla navegação, autenticação visual, chamadas API, renderização de telas, tabelas e gráficos.
+O frontend é uma single page interface construída com HTML, CSS e JavaScript puro. O Flask entrega `login.html` para autenticação e `base.html` para a área principal. O `script.js` controla navegação, sessão atual, chamadas API, renderização de telas, tabelas e gráficos.
 
 ## Arquivos
 
 | Arquivo | Função |
 |---|---|
+| `app/templates/login.html` | Tela de login por e-mail e senha. |
 | `app/templates/base.html` | Estrutura principal da página. |
 | `app/static/css/style.css` | Estilos, layout, responsividade e componentes. |
 | `app/static/js/script.js` | Estado, permissões, API, renderização e eventos. |
@@ -19,7 +20,7 @@ A interface possui:
 - alerta superior de banco indisponível;
 - sidebar fixa;
 - marca "Aurora BI";
-- Role Bar;
+- painel de sessão com usuário logado e logout;
 - menu de navegação;
 - área principal de trabalho;
 - filtros globais;
@@ -27,7 +28,7 @@ A interface possui:
 
 ```mermaid
 flowchart LR
-    A[Sidebar] --> B[Role Bar]
+    A[Sidebar] --> B[Painel de sessão]
     A --> C[Menu]
     D[Workspace] --> E[Topbar / Filtros]
     D --> F[viewRoot]
@@ -42,7 +43,8 @@ flowchart LR
 | Componente | Implementação |
 |---|---|
 | Sidebar | HTML fixo em `base.html`, estilizado por `.sidebar`. |
-| Role Bar | Select de usuário, campo senha e botão de autenticação. |
+| Login | Formulário de e-mail e senha em `login.html`. |
+| Painel de sessão | Mostra usuário/perfil logado e link de saída. |
 | Navbar | Gerada por `renderNav()`. |
 | Filtros | Inputs de data e selects de filial, categoria e produto. |
 | Cards KPI | Criados por `card()` e `renderKpis()`. |
@@ -61,11 +63,11 @@ O objeto `state` centraliza:
 | `charts` | Instâncias Chart.js para destruição antes de redesenhar. |
 | `data` | Dados normalizados dos dashboards. |
 | `users` | Usuários carregados de `/usuarios`. |
+| `currentUser` | Usuário autenticado retornado por `/auth/me`. |
 | `apiFiliais` | Filiais vindas do banco. |
 | `apiProducts` | Produtos detalhados. |
 | `apiClients` | Clientes. |
-| `usingMock` | Indica fallback de dados demonstrativos. |
-| `usingMockUsers` | Indica fallback de usuários locais. |
+| `dbUnavailable` | Indica falha de banco/API e exibe aviso visual. |
 
 ## Permissões Visuais
 
@@ -73,10 +75,10 @@ As permissões são definidas em `roleProfiles`:
 
 ```javascript
 const roleProfiles = {
-    administrador: { permissions: ["dashboard:geral", "usuarios:gerenciar"] },
-    gerente: { permissions: ["dashboard:geral", "usuarios:criar"] },
-    vendedor: { permissions: ["dashboard:vendas", "vendas:criar"] },
-    analista: { permissions: ["dashboard:geral", "relatorios:ver"] }
+    admin_comercial: { permissions: ["dashboard:geral", "usuarios:gerenciar"] },
+    gerente_comercial: { permissions: ["dashboard:geral", "relatorios:ver"] },
+    operador_comercial: { permissions: ["dashboard:vendas", "vendas:criar"] },
+    leitura_comercial: { permissions: ["dashboard:geral", "relatorios:ver"] }
 };
 ```
 
@@ -86,11 +88,11 @@ Cada tela em `screens` exige uma permissão.
 
 Fluxo:
 
-1. Carrega usuários de `/usuarios`.
-2. Usuário escolhe perfil e digita senha.
-3. `authenticateSelectedUser()` envia senha para `/auth/login`.
-4. Se validado, `currentUserId` é atualizado.
-5. A UI recalcula permissões e tela permitida.
+1. Usuário acessa `/login`.
+2. Envia e-mail e senha para `/auth/login`.
+3. O backend cria sessão Flask e redireciona para `/`.
+4. `loadCurrentUser()` consulta `/auth/me`.
+5. A UI recalcula permissões e renderiza a primeira tela permitida.
 
 ## Gráficos
 
@@ -155,13 +157,13 @@ O CSS define:
 - tabelas em wrapper para overflow;
 - raio de borda consistente em 8px.
 
-## Fallback
+## Banco Indisponível
 
-Se endpoints falham, `fetchOptional()` ativa `state.usingMock` e usa dados demonstrativos. Isso mantém a interface navegável quando o banco não está disponível.
+Se endpoints falham, a interface ativa `state.dbUnavailable`, exibe o alerta superior e mostra uma mensagem de banco indisponível na área principal. Os dados demonstrativos locais foram removidos do fluxo de fallback.
 
 ## Pontos de Atenção
 
-- O controle de permissões é visual, não substitui segurança backend.
-- As senhas de fallback ficam no JS para ambiente didático.
+- O controle de permissões visual complementa as validações backend das ações sensíveis.
+- As senhas de teste ainda são armazenadas em texto puro no banco para ambiente didático.
 - Chart.js depende de internet por CDN.
 - O frontend não usa framework; manutenções devem preservar funções pequenas e renderização por tela.

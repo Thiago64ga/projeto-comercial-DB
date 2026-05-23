@@ -53,7 +53,7 @@ CREATE TABLE comercial.app_usuario (
     perfil VARCHAR(30) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'Ativo',
     criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CHECK (perfil IN ('administrador', 'gerente', 'vendedor', 'analista')),
+    CHECK (perfil IN ('admin_comercial', 'gerente_comercial', 'operador_comercial', 'leitura_comercial')),
     CHECK (status IN ('Ativo', 'Inativo')),
     CHECK (LENGTH(nome) >= 3),
     CHECK (LENGTH(senha) >= 6)
@@ -166,10 +166,10 @@ SELECT
 FROM generate_series(1, 500) AS gs;
 
 INSERT INTO comercial.app_usuario (nome, email, senha, perfil, status) VALUES
-('Marina Costa', 'admin@aurora.local', 'admin123', 'administrador', 'Ativo'),
-('Rafael Lima', 'gerente@aurora.local', 'gerente123', 'gerente', 'Ativo'),
-('Bianca Alves', 'vendedor@aurora.local', 'vendedor123', 'vendedor', 'Ativo'),
-('Lucas Pereira', 'analista@aurora.local', 'analista123', 'analista', 'Ativo');
+('Admin Comercial', 'admin@aurora.local', 'admin123', 'admin_comercial', 'Ativo'),
+('Gerente Comercial', 'gerente@aurora.local', 'gerente123', 'gerente_comercial', 'Ativo'),
+('Operador Comercial', 'operador@aurora.local', 'operador123', 'operador_comercial', 'Ativo'),
+('Leitura Comercial', 'leitura@aurora.local', 'leitura123', 'leitura_comercial', 'Ativo');
 
 INSERT INTO comercial.fato_vendas (
     id_data, id_filial, id_cliente, numero_pedido,
@@ -285,3 +285,56 @@ CREATE INDEX idx_vm_comercial_periodo ON comercial.vm_kpis_comercial_mensal(peri
 CREATE INDEX idx_vm_comercial_filial ON comercial.vm_kpis_comercial_mensal(nome_filial);
 CREATE INDEX idx_vm_comercial_produto ON comercial.vm_kpis_comercial_mensal(nome_produto);
 CREATE INDEX idx_vm_comercial_categoria ON comercial.vm_kpis_comercial_mensal(nome_categoria);
+
+CREATE OR REPLACE VIEW comercial.vw_resumo_vendas AS
+SELECT
+    v.id_venda,
+    c.data_completa,
+    f.nome_filial,
+    cli.nome_cliente,
+    v.numero_pedido,
+    v.forma_pagamento,
+    v.status_venda,
+    v.valor_bruto,
+    v.desconto,
+    v.valor_liquido
+FROM comercial.fato_vendas v
+JOIN comercial.dim_calendario c ON c.id_data = v.id_data
+JOIN comercial.dim_filial f ON f.id_filial = v.id_filial
+LEFT JOIN comercial.dim_cliente cli ON cli.id_cliente = v.id_cliente;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'admin_comercial') THEN
+        CREATE ROLE admin_comercial LOGIN PASSWORD 'admin123';
+    END IF;
+
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'gerente_comercial') THEN
+        CREATE ROLE gerente_comercial LOGIN PASSWORD 'gerente123';
+    END IF;
+
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'operador_comercial') THEN
+        CREATE ROLE operador_comercial LOGIN PASSWORD 'operador123';
+    END IF;
+
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'leitura_comercial') THEN
+        CREATE ROLE leitura_comercial LOGIN PASSWORD 'leitura123';
+    END IF;
+END $$;
+
+GRANT ALL PRIVILEGES ON SCHEMA comercial TO admin_comercial;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA comercial TO admin_comercial;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA comercial TO admin_comercial;
+
+GRANT USAGE ON SCHEMA comercial TO gerente_comercial;
+GRANT SELECT ON ALL TABLES IN SCHEMA comercial TO gerente_comercial;
+
+GRANT USAGE ON SCHEMA comercial TO operador_comercial;
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA comercial TO operador_comercial;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA comercial TO operador_comercial;
+
+GRANT USAGE ON SCHEMA comercial TO leitura_comercial;
+GRANT SELECT ON comercial.vw_resumo_vendas TO leitura_comercial;
+GRANT SELECT ON comercial.vm_kpis_comercial_mensal TO leitura_comercial;
+
+REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA comercial FROM leitura_comercial;

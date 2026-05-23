@@ -54,32 +54,32 @@ O sistema representa uma operação comercial com:
 - Email deve ser único.
 - Senha deve ter pelo menos 6 caracteres.
 - Perfil deve ser um dos valores permitidos:
-  - `administrador`
-  - `gerente`
-  - `vendedor`
-  - `analista`
+  - `admin_comercial`
+  - `gerente_comercial`
+  - `operador_comercial`
+  - `leitura_comercial`
 - Status deve ser:
   - `Ativo`
   - `Inativo`
 - Usuário inativo não pode autenticar.
-- O último administrador ativo não pode ser inativado.
-- O último administrador ativo não pode ser removido.
+- O último `admin_comercial` ativo não pode ser inativado.
+- O último `admin_comercial` ativo não pode ser removido.
 
 ## Regras de Permissão
 
-- Administrador possui acesso completo.
-- Gerente gerencia usuários parcialmente e visualiza dashboards.
-- Vendedor cadastra vendas.
-- Analista apenas consulta.
+- Admin Comercial possui acesso completo.
+- Gerente Comercial visualiza dashboards, consultas e relatórios.
+- Operador Comercial cadastra vendas e consulta telas operacionais.
+- Leitura Comercial apenas consulta dashboards e relatórios.
 - A navegação é controlada visualmente no frontend.
-- Rotas backend devem receber validação adicional em evolução futura.
+- Rotas backend sensíveis validam sessão e permissão por perfil.
 
 ## Regras de Dashboard
 
 - KPIs consideram vendas concluídas.
 - Filtros de data só são aplicados quando início e fim são informados.
 - Filtros vazios retornam visão geral.
-- A interface usa fallback demonstrativo se o banco falhar.
+- A interface exibe aviso quando o banco falha e não substitui a API por dados locais.
 
 ## Regras Técnicas
 
@@ -90,9 +90,9 @@ O sistema representa uma operação comercial com:
 
 ## Melhorias Futuras
 
-- Permissões server-side.
+- Centralização da matriz de permissões.
 - Hash de senha.
 - Auditoria de operações.
-- Controle real de vendedor por venda.
+- Controle real de operador por venda.
 - Campo de forma de pagamento no formulário.
 - Suporte a múltiplos itens por venda.

@@ -16,6 +16,8 @@ O script `cria_banco.sql` executa as seguintes ações principais:
 - Insere dados de exemplo nas dimensões e na tabela de fatos.
 - Cria índices para otimizar consultas sobre fatos e dimensões.
 - Cria uma `MATERIALIZED VIEW` destinada a KPIs comerciais mensais.
+- Cria a view `comercial.vw_resumo_vendas` para leitura resumida de vendas.
+- Cria roles PostgreSQL alinhadas aos perfis da aplicação.
 
 ### Tabelas Criadas
 
@@ -26,10 +28,15 @@ O script `cria_banco.sql` executa as seguintes ações principais:
 - `comercial.dim_cliente`
 - `comercial.fato_vendas`
 - `comercial.fato_itens_venda`
+- `comercial.app_usuario`
 
 Além das tabelas, o script cria a materialized view:
 
 - `comercial.vm_kpis_comercial_mensal`
+
+E a view:
+
+- `comercial.vw_resumo_vendas`
 
 ### Campos Principais e Tipos de Dados
 
@@ -38,6 +45,7 @@ Além das tabelas, o script cria a materialized view:
 - Valores monetários: `NUMERIC(10,2)` e `NUMERIC(14,2)` para preços, custos, valores e descontos.
 - Textos: `VARCHAR` com tamanhos adequados para nomes, descrições e status.
 - Identificadores únicos: `UNIQUE` em campos como `data_completa`, `nome_filial`, `nome_categoria`, `nome_produto` e `numero_pedido`.
+- Perfis de aplicação aceitos em `app_usuario`: `admin_comercial`, `gerente_comercial`, `operador_comercial` e `leitura_comercial`.
 
 ### Chaves Primárias
 
@@ -48,6 +56,7 @@ Além das tabelas, o script cria a materialized view:
 - `dim_cliente.id_cliente`
 - `fato_vendas.id_venda`
 - `fato_itens_venda.id_item`
+- `app_usuario.id_usuario`
 
 ### Chaves Estrangeiras
 
@@ -89,6 +98,8 @@ O modelo apresenta:
 - RF05 — O sistema deve registrar vendas com identificação, forma de pagamento, status e valores financeiros.
 - RF06 — O sistema deve detalhar os itens de cada venda com produto, quantidade, preço e custo.
 - RF07 — O sistema deve gerar uma visão consolidada de KPIs mensais a partir das vendas concluídas.
+- RF08 — O sistema deve manter usuários da aplicação com perfil e status.
+- RF09 — O sistema deve disponibilizar uma view resumida de vendas para leitura controlada.
 
 ## 4. Requisitos Não Funcionais
 
@@ -97,6 +108,7 @@ O modelo apresenta:
 - RNF03 — O banco deve preservar unicidade em campos de identificação importantes.
 - RNF04 — O banco deve suportar consultas de desempenho com índices nas colunas de filtro críticas.
 - RNF05 — O banco deve isolar o modelo analítico em um schema dedicado (`comercial`).
+- RNF06 — O banco deve declarar roles de acesso compatíveis com os perfis comerciais da aplicação.
 
 ## 5. Modelo Conceitual
 
@@ -135,6 +147,11 @@ erDiagram
         bigint id_item PK
         bigint id_venda FK
         int id_produto FK
+    }
+    APP_USUARIO {
+        int id_usuario PK
+        string email
+        string perfil
     }
 
     DIM_CALENDARIO ||--o{ FATO_VENDAS : "1 para N"
@@ -209,6 +226,15 @@ erDiagram
   - `custo_unitario` — `NUMERIC(10,2)`, NOT NULL
   - `valor_total` — `NUMERIC(14,2)`, NOT NULL
   - `custo_total` — `NUMERIC(14,2)`, NOT NULL
+
+- `comercial.app_usuario`
+  - `id_usuario` — `SERIAL`, PK
+  - `nome` — `VARCHAR(120)`, NOT NULL
+  - `email` — `VARCHAR(120)`, NOT NULL, UNIQUE
+  - `senha` — `VARCHAR(120)`, NOT NULL
+  - `perfil` — `VARCHAR(30)`, NOT NULL, limitado a `admin_comercial`, `gerente_comercial`, `operador_comercial` e `leitura_comercial`
+  - `status` — `VARCHAR(20)`, NOT NULL, limitado a `Ativo` e `Inativo`
+  - `criado_em` — `TIMESTAMP`, NOT NULL, DEFAULT `CURRENT_TIMESTAMP`
 
 ### Cardinalidades
 
@@ -348,7 +374,38 @@ erDiagram
 | valor_total | NUMERIC(14,2) | - | Sim | Valor total calculado para o item. |
 | custo_total | NUMERIC(14,2) | - | Sim | Custo total calculado para o item. |
 
-## 8. Relacionamentos
+### `app_usuario`
+
+| Campo | Tipo | Chave | Obrigatório | Descrição |
+|---|---|---|---|---|
+| id_usuario | SERIAL | PK | Sim | Identificador do usuário da aplicação. |
+| nome | VARCHAR(120) | - | Sim | Nome do usuário. |
+| email | VARCHAR(120) | UK | Sim | E-mail usado no login. |
+| senha | VARCHAR(120) | - | Sim | Senha do usuário no ambiente didático. |
+| perfil | VARCHAR(30) | - | Sim | Perfil comercial da aplicação. |
+| status | VARCHAR(20) | - | Sim | `Ativo` ou `Inativo`. |
+| criado_em | TIMESTAMP | - | Sim | Data de criação do cadastro. |
+
+## 8. Views e Roles
+
+### `comercial.vm_kpis_comercial_mensal`
+
+Materialized view usada pelos dashboards para consultas agregadas de receita, quantidade, custo, margem e ticket médio por período, filial, categoria e produto.
+
+### `comercial.vw_resumo_vendas`
+
+View simples de leitura com venda, data, filial, cliente, pedido, pagamento, status e valores financeiros. Ela permite expor uma visão resumida para perfis de leitura sem liberar escrita nas tabelas.
+
+### Roles PostgreSQL
+
+| Role | Uso |
+|---|---|
+| `admin_comercial` | Acesso total ao schema comercial. |
+| `gerente_comercial` | Leitura das tabelas do schema. |
+| `operador_comercial` | Leitura, inserção e atualização operacional. |
+| `leitura_comercial` | Leitura limitada às views analíticas liberadas. |
+
+## 9. Relacionamentos
 
 - `dim_calendario` → `fato_vendas`: uma data no calendário pode estar presente em muitas vendas.
 - `dim_filial` → `fato_vendas`: uma filial pode registrar várias vendas.
@@ -359,7 +416,7 @@ erDiagram
 
 A função desses relacionamentos é manter a consistência entre os dados analíticos e permitir consultas multidimensionais, como análise de vendas por período, filial, categoria e produto.
 
-## 9. Conclusão
+## 10. Conclusão
 
 A modelagem descrita no script SQL é adequada para um projeto de análise comercial. Ela separa claramente dimensões e fatos, garante integridade referencial, e usa tipos de dados apropriados para valores financeiros e datas.
 

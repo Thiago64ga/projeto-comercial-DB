@@ -11,31 +11,32 @@ sequenceDiagram
 
     Dev->>Flask: python run.py
     Flask->>Flask: create_app()
-    Flask->>DB: SELECT 1
-    DB-->>Flask: OK ou erro
     Browser->>Flask: GET /
-    Flask-->>Browser: base.html
+    Flask-->>Browser: Redirect /login sem sessão
+    Browser->>Flask: GET /login
+    Flask-->>Browser: login.html
     Browser->>Browser: Carrega CSS e JS
 ```
 
 ## Fluxo de Carregamento de Dados
 
 1. `init()` executa no frontend.
-2. `loadUsers()` consulta `/usuarios`.
-3. `loadSelects()` consulta `/filiais` e `/categorias`.
-4. `loadProducts()` consulta `/produtos`.
-5. `refreshData()` consulta endpoints de KPIs.
-6. `render()` monta a tela atual.
+2. `loadCurrentUser()` consulta `/auth/me`.
+3. Se o perfil permite gestão de usuários, `loadUsers()` consulta `/usuarios`.
+4. `loadSelects()` consulta `/filiais` e `/categorias`.
+5. `loadProducts()` consulta `/produtos`.
+6. `refreshData()` consulta endpoints de KPIs.
+7. `render()` monta a tela atual.
 
 ## Fluxo de Login
 
 ```mermaid
 flowchart TD
-    A[Selecionar usuário] --> B[Digitar senha]
+    A[Acessar /login] --> B[Digitar e-mail e senha]
     B --> C[POST /auth/login]
     C --> D{Credenciais válidas?}
-    D -->|Sim| E[Atualiza currentUserId]
-    E --> F[Recalcula permissões]
+    D -->|Sim| E[Cria sessão Flask]
+    E --> F[GET /auth/me]
     F --> G[Renderiza tela permitida]
     D -->|Não| H[Exibe erro]
 ```
@@ -93,22 +94,23 @@ sequenceDiagram
 Regras:
 
 - status permitido: `Ativo`, `Inativo`;
-- não inativar último administrador ativo.
+- não inativar o último `admin_comercial` ativo.
 
 ### Remoção
 
 Regra:
 
-- não remover último administrador ativo.
+- não remover o último `admin_comercial` ativo.
 
 ## Fluxo de Fallback
 
-Quando uma chamada opcional falha:
+Quando uma chamada de dados falha:
 
-1. `fetchOptional()` captura erro.
-2. `state.usingMock = true`.
-3. A interface usa dados demonstrativos.
-4. O alerta de banco indisponível é exibido.
+1. A exceção é capturada no carregamento da tela.
+2. `state.dbUnavailable = true`.
+3. O alerta de banco indisponível é exibido.
+4. A área principal mostra a mensagem do erro.
+5. A interface não usa mais dados demonstrativos locais como fallback.
 
 ## Fluxo de Manutenção de View
 

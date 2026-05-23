@@ -81,7 +81,9 @@ projeto-comercial-DB/
 │   ├── static/
 │   │   ├── css/style.css
 │   │   └── js/script.js
-│   └── templates/base.html
+│   └── templates/
+│       ├── base.html
+│       └── login.html
 ├── db/
 │   ├── init/cria_banco.sql
 │   └── docs/modelo_banco.md
@@ -125,7 +127,7 @@ DB_USER=bi_user
 DB_PASSWORD=bi_pass
 ```
 
-5. Execute o script SQL no banco `bi_comercial_db`:
+5. Execute o script SQL no banco `bi_comercial_db` se o volume do Docker já existia antes desta versão. Em ambientes novos, o Docker Compose monta `db/init/cria_banco.sql` em `/docker-entrypoint-initdb.d/` e inicializa o banco automaticamente na primeira subida:
 
 ```text
 db/init/cria_banco.sql
@@ -149,23 +151,23 @@ Guia completo em [instalacao.md](docs/instalacao.md).
 
 | Perfil | Email | Senha | Acesso |
 |---|---|---|---|
-| Administrador | admin@aurora.local | admin123 | Acesso completo, usuários, dashboards, vendas e relatórios. |
-| Gerente | gerente@aurora.local | gerente123 | Dashboards, consultas, criação e remoção de usuários. |
-| Vendedor | vendedor@aurora.local | vendedor123 | Cadastro de venda e consultas operacionais. |
-| Analista | analista@aurora.local | analista123 | Leitura de dashboards e relatórios. |
+| Admin Comercial | admin@aurora.local | admin123 | Acesso completo, usuários, dashboards, vendas e permissões. |
+| Gerente Comercial | gerente@aurora.local | gerente123 | Dashboards, consultas e relatórios. |
+| Operador Comercial | operador@aurora.local | operador123 | Cadastro de venda, produtos, clientes e dashboard de vendas. |
+| Leitura Comercial | leitura@aurora.local | leitura123 | Leitura de dashboards e relatórios. |
 
 ## Permissões
 
-O controle de permissões é aplicado no frontend por perfil, controlando telas, botões e fluxo de navegação. A autenticação consulta o backend pela rota `/auth/login`, e os usuários são mantidos na tabela `comercial.app_usuario`.
+O controle de permissões é aplicado no frontend por perfil e também nas rotas sensíveis do backend. A autenticação usa a rota `/auth/login`, cria sessão Flask e mantém os usuários na tabela `comercial.app_usuario`.
 
 Resumo:
 
 | Perfil | Permissões principais |
 |---|---|
-| Administrador | Acesso total. |
-| Gerente | Visualização geral e gestão parcial de usuários. |
-| Vendedor | Cadastro de vendas e visualização restrita. |
-| Analista | Apenas leitura e relatórios. |
+| Admin Comercial | Acesso total. |
+| Gerente Comercial | Visualização de dashboards, consultas e relatórios. |
+| Operador Comercial | Cadastro de vendas e visualização operacional. |
+| Leitura Comercial | Apenas leitura de dashboards e relatórios. |
 
 Detalhes em [permissoes.md](docs/permissoes.md).
 
@@ -178,7 +180,7 @@ Detalhes em [permissoes.md](docs/permissoes.md).
 - Registro de nova venda com persistência em tabelas fato.
 - Atualização da materialized view após cadastro de venda.
 - Gerenciamento de usuários da aplicação.
-- Fallback visual com dados demonstrativos quando o banco está indisponível.
+- Aviso visual quando o banco está indisponível, sem usar dados locais como fallback.
 
 ## Dashboards Existentes
 
@@ -201,23 +203,23 @@ Métricas principais:
 
 ## Fluxo do Sistema
 
-1. Usuário acessa a página Flask.
-2. O backend testa a conexão com o banco.
-3. A interface carrega usuários, filtros, clientes e produtos.
-4. O usuário autentica um perfil pela Role Bar.
-5. O frontend habilita telas conforme permissões.
-6. Os dashboards consultam endpoints Flask.
+1. Usuário acessa a aplicação e, se não houver sessão, é redirecionado para `/login`.
+2. O usuário autentica por e-mail e senha em `/auth/login`.
+3. O backend grava os dados do usuário na sessão Flask.
+4. A interface principal carrega `/auth/me`, filtros, clientes e produtos.
+5. O frontend habilita telas conforme permissões do perfil.
+6. Os dashboards consultam endpoints Flask protegidos por sessão.
 7. Os endpoints executam queries SQL em `bi_queries.py`.
 8. O PostgreSQL retorna dados agregados da view `vm_kpis_comercial_mensal`.
 9. O frontend renderiza cards, tabelas e gráficos.
 
 ## Melhorias Futuras
 
-- Implementar sessão server-side com Flask-Login.
+- Evoluir sessão com Flask-Login ou armazenamento server-side.
 - Armazenar senha com hash seguro.
 - Adicionar testes automatizados de API e UI.
 - Criar migrations com Alembic.
-- Separar permissões também no backend.
+- Ampliar a matriz de permissões backend para todas as telas analíticas.
 - Adicionar logs estruturados.
 - Incluir screenshots reais da interface na documentação.
 - Criar pipeline CI/CD.

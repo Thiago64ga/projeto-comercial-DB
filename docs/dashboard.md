@@ -170,4 +170,4 @@ Mostra:
 
 ## Fallback
 
-Quando o banco falha, a interface usa dados demonstrativos definidos em `mock`. O alerta superior informa o modo demonstrativo.
+Quando o banco falha, a interface exibe o alerta superior de indisponibilidade e mostra a mensagem de erro na área principal. O fluxo atual não usa dados demonstrativos locais como fallback.

@@ -1,5 +1,5 @@
 const roleProfiles = {
-    administrador: {
+    admin_comercial: {
         name: "Administrador",
         description: "Pode criar, editar e remover usuarios; visualiza todos os dados e dashboards.",
         forcedFilial: "",
@@ -10,29 +10,28 @@ const roleProfiles = {
             "permissoes:ver", "relatorios:ver", "dados:todos"
         ]
     },
-    gerente: {
-        name: "Gerente",
-        description: "Pode criar e remover usuarios; visualiza dashboards, vendas, produtos, clientes e filiais.",
-        forcedFilial: "",
-        permissions: [
-            "dashboard:geral", "dashboard:vendas", "dashboard:filial", "dashboard:categoria",
-            "produtos:ver", "clientes:ver", "filiais:ver", "vendas:ver:todas",
-            "usuarios:gerenciar", "usuarios:criar", "usuarios:remover", "relatorios:ver"
-        ]
-    },
-    vendedor: {
-        name: "Vendedor",
-        description: "Pode adicionar vendas, visualizar produtos, clientes e somente suas vendas.",
-        forcedFilial: "Filial Campinas",
-        permissions: ["dashboard:vendas", "produtos:ver", "clientes:ver", "vendas:ver:proprias", "vendas:criar"]
-    },
-    analista: {
-        name: "Analista",
-        description: "Pode apenas visualizar dados, dashboards e relatorios. Nao cadastra, edita ou remove dados.",
+    gerente_comercial: {
+        name: "Gerente Comercial",
+        description: "Visualiza dashboards, vendas, produtos, clientes, filiais e relatorios.",
         forcedFilial: "",
         permissions: [
             "dashboard:geral", "dashboard:vendas", "dashboard:filial", "dashboard:categoria",
             "produtos:ver", "clientes:ver", "filiais:ver", "vendas:ver:todas", "relatorios:ver"
+        ]
+    },
+    operador_comercial: {
+        name: "Operador Comercial",
+        description: "Pode adicionar vendas, visualizar produtos, clientes e dashboards permitidos.",
+        forcedFilial: "",
+        permissions: ["dashboard:vendas", "produtos:ver", "clientes:ver", "vendas:ver:proprias", "vendas:criar"]
+    },
+    leitura_comercial: {
+        name: "Leitura Comercial",
+        description: "Pode apenas visualizar indicadores e relatorios. Nao cadastra, edita ou remove dados.",
+        forcedFilial: "",
+        permissions: [
+            "dashboard:geral", "dashboard:vendas", "dashboard:filial", "dashboard:categoria",
+            "relatorios:ver"
         ]
     }
 };
@@ -50,79 +49,28 @@ const screens = [
     { id: "relatorios", label: "Relatorios", icon: "R", permission: "relatorios:ver" }
 ];
 
-const mock = {
-    users: [
-        { id: "u-admin", name: "Marina Costa", email: "admin@aurora.local", password: "admin123", roleId: "administrador", status: "Ativo" },
-        { id: "u-gerente", name: "Rafael Lima", email: "gerente@aurora.local", password: "gerente123", roleId: "gerente", status: "Ativo" },
-        { id: "u-vendedor", name: "Bianca Alves", email: "vendedor@aurora.local", password: "vendedor123", roleId: "vendedor", status: "Ativo" },
-        { id: "u-analista", name: "Lucas Pereira", email: "analista@aurora.local", password: "analista123", roleId: "analista", status: "Ativo" }
-    ],
-    filiais: [
-        "Filial Sao Paulo Centro", "Filial Campinas", "Filial Rio Capital", "Filial Belo Horizonte",
-        "Filial Curitiba", "Filial Porto Alegre", "Filial Salvador", "Filial Recife",
-        "Filial Goiania", "Filial Brasilia"
-    ],
-    categorias: ["Perifericos", "Hardware", "Computadores", "Monitores", "Armazenamento", "Redes"],
-    produtos: [
-        { produto: "Mouse Gamer RGB", categoria: "Perifericos", marca: "RedTech", preco: 129.9, status: "ATIVO", vendidos: 3280, receita: 426072 },
-        { produto: "Teclado Mecanico", categoria: "Perifericos", marca: "KeyPro", preco: 249.9, status: "ATIVO", vendidos: 2910, receita: 727209 },
-        { produto: "Notebook i5 16GB", categoria: "Computadores", marca: "NotePro", preco: 3599.9, status: "ATIVO", vendidos: 740, receita: 2663926 },
-        { produto: "PC Gamer Completo", categoria: "Computadores", marca: "ByteMachine", preco: 4999.9, status: "ATIVO", vendidos: 610, receita: 3049939 },
-        { produto: "Monitor Gamer 144Hz", categoria: "Monitores", marca: "ViewMax", preco: 1299.9, status: "ATIVO", vendidos: 1090, receita: 1416891 },
-        { produto: "SSD NVMe 1TB", categoria: "Armazenamento", marca: "StorageX", preco: 499.9, status: "ATIVO", vendidos: 1920, receita: 959808 },
-        { produto: "Roteador Dual Band", categoria: "Redes", marca: "NetFast", preco: 199.9, status: "ATIVO", vendidos: 1610, receita: 321839 }
-    ],
-    clientes: [
-        { nome: "Cliente 12", tipo: "B2B", cidade: "Sao Paulo", uf: "SP", cadastro: "2025-10-11" },
-        { nome: "Cliente 41", tipo: "B2C", cidade: "Belo Horizonte", uf: "MG", cadastro: "2025-12-03" },
-        { nome: "Cliente 87", tipo: "B2C", cidade: "Rio de Janeiro", uf: "RJ", cadastro: "2026-01-19" },
-        { nome: "Cliente 156", tipo: "B2B", cidade: "Curitiba", uf: "PR", cadastro: "2026-02-22" },
-        { nome: "Cliente 244", tipo: "B2C", cidade: "Brasilia", uf: "DF", cadastro: "2026-03-07" }
-    ],
-    monthly: [
-        { periodo: "2025-07-01", receita_bruta: 695000, receita_liquida: 658000, desconto_total: 37000, quantidade_vendida: 1450, quantidade_de_vendas: 520 },
-        { periodo: "2025-08-01", receita_bruta: 734000, receita_liquida: 692000, desconto_total: 42000, quantidade_vendida: 1510, quantidade_de_vendas: 548 },
-        { periodo: "2025-09-01", receita_bruta: 763000, receita_liquida: 724500, desconto_total: 38500, quantidade_vendida: 1580, quantidade_de_vendas: 571 },
-        { periodo: "2025-10-01", receita_bruta: 812000, receita_liquida: 769000, desconto_total: 43000, quantidade_vendida: 1664, quantidade_de_vendas: 602 },
-        { periodo: "2025-11-01", receita_bruta: 881000, receita_liquida: 831000, desconto_total: 50000, quantidade_vendida: 1785, quantidade_de_vendas: 649 },
-        { periodo: "2025-12-01", receita_bruta: 943000, receita_liquida: 898000, desconto_total: 45000, quantidade_vendida: 1938, quantidade_de_vendas: 704 }
-    ],
-    branchRevenue: [
-        { filial: "Filial Sao Paulo Centro", receita_liquida: 1250000, margem_bruta_percentual: 34.2 },
-        { filial: "Filial Belo Horizonte", receita_liquida: 1084000, margem_bruta_percentual: 32.7 },
-        { filial: "Filial Campinas", receita_liquida: 997000, margem_bruta_percentual: 31.5 },
-        { filial: "Filial Curitiba", receita_liquida: 916000, margem_bruta_percentual: 30.8 },
-        { filial: "Filial Salvador", receita_liquida: 870000, margem_bruta_percentual: 29.4 }
-    ],
-    categoryRevenue: [
-        { categoria: "Computadores", quantidade_vendida: 1740, receita_liquida: 4312000, margem_bruta_percentual: 28.8 },
-        { categoria: "Monitores", quantidade_vendida: 2490, receita_liquida: 2177000, margem_bruta_percentual: 34.9 },
-        { categoria: "Hardware", quantidade_vendida: 3180, receita_liquida: 1949000, margem_bruta_percentual: 30.1 },
-        { categoria: "Perifericos", quantidade_vendida: 4200, receita_liquida: 1510000, margem_bruta_percentual: 39.2 },
-        { categoria: "Armazenamento", quantidade_vendida: 2670, receita_liquida: 1128000, margem_bruta_percentual: 36.4 }
-    ],
-    sales: []
+const legacyRoleIds = {
+    administrador: "admin_comercial",
+    gerente: "gerente_comercial",
+    vendedor: "operador_comercial",
+    analista: "leitura_comercial"
 };
 
 const state = {
-    currentUserId: "u-admin",
+    currentUserId: "",
     currentScreenId: "dashboard-geral",
     charts: [],
     data: null,
-    users: cloneUsers(),
+    users: [],
+    currentUser: null,
     apiFiliais: [],
     apiProducts: [],
     apiClients: [],
-    usingMockUsers: false,
-    usingMock: false
+    dbUnavailable: false
 };
 
 const els = {
-    roleSelect: document.getElementById("roleSelect"),
-    rolePassword: document.getElementById("rolePassword"),
-    roleMessage: document.getElementById("roleMessage"),
     roleDescription: document.getElementById("roleDescription"),
-    btnTrocarUsuario: document.getElementById("btnTrocarUsuario"),
     mainNav: document.getElementById("mainNav"),
     pageTitle: document.getElementById("pageTitle"),
     viewRoot: document.getElementById("viewRoot"),
@@ -138,16 +86,24 @@ const els = {
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const integer = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
-function cloneUsers() {
-    return mock.users.map(({ password, ...user }) => ({ ...user, password }));
+function getUser(userId = state.currentUserId) {
+    if (state.currentUser && state.currentUser.id === userId) {
+        return state.currentUser;
+    }
+    return state.users.find((user) => user.id === userId) || state.users[0] || {
+        id: "",
+        name: "Sem usuario",
+        roleId: "operador_comercial",
+        status: "Inativo"
+    };
 }
 
-function getUser(userId = state.currentUserId) {
-    return state.users.find((user) => user.id === userId) || state.users[0] || mock.users[0];
+function normalizeRoleId(roleId) {
+    return legacyRoleIds[roleId] || roleId;
 }
 
 function getRole(user = getUser()) {
-    return roleProfiles[user.roleId] || roleProfiles.vendedor;
+    return roleProfiles[normalizeRoleId(user.roleId)] || roleProfiles.operador_comercial;
 }
 
 function getScreen() {
@@ -186,6 +142,9 @@ function showFormMessage(target, text, type = "success") {
 }
 
 function setRoleMessage(text, type = "success") {
+    if (!els.roleMessage) {
+        return;
+    }
     els.roleMessage.textContent = text;
     els.roleMessage.className = `role-message ${type}`;
 }
@@ -204,10 +163,11 @@ function buildParams() {
 
 async function fetchJson(path) {
     const response = await fetch(path);
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(`Falha em ${path}`);
+        throw new Error(data.erro || `Falha em ${path}`);
     }
-    return response.json();
+    return data;
 }
 
 async function fetchJsonWithOptions(path, options) {
@@ -219,35 +179,28 @@ async function fetchJsonWithOptions(path, options) {
     return data;
 }
 
-async function fetchOptional(path, fallback) {
-    try {
-        return await fetchJson(path);
-    } catch (error) {
-        state.usingMock = true;
-        return fallback;
-    }
-}
-
 async function loadUsers() {
-    state.usingMockUsers = false;
-    try {
-        state.users = await fetchJson("/usuarios");
-        if (!state.users.length) {
-            state.users = cloneUsers();
-            state.usingMockUsers = true;
-        }
-    } catch (error) {
-        state.usingMockUsers = true;
-        state.users = cloneUsers();
+    if (!can("usuarios:gerenciar")) {
+        state.users = state.currentUser ? [state.currentUser] : [];
+        return;
     }
+    state.users = await fetchJson("/usuarios");
 
     if (!state.users.some((user) => user.id === state.currentUserId)) {
-        state.currentUserId = state.users[0]?.id || "u-admin";
+        state.currentUserId = state.users[0]?.id || "";
     }
 }
 
-function showMockNotice() {
-    els.dbAlert.hidden = !state.usingMock;
+async function loadCurrentUser() {
+    const user = await fetchJson("/auth/me");
+    state.currentUser = user;
+    state.currentUserId = user.id;
+    state.users = [user];
+    state.currentScreenId = firstAllowedScreenId();
+}
+
+function showDbNotice() {
+    els.dbAlert.hidden = !state.dbUnavailable;
 }
 
 function numberFromApi(value) {
@@ -258,11 +211,6 @@ function numberFromApi(value) {
 function periodLabel(periodo) {
     const date = new Date(`${periodo}T00:00:00`);
     return Number.isNaN(date.getTime()) ? periodo : date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
-}
-
-function monthKey(dateValue) {
-    const date = dateValue ? new Date(`${dateValue}T00:00:00`) : new Date();
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
 function sumRows(rows, key) {
@@ -279,8 +227,8 @@ function clone(value) {
 
 async function loadSelects() {
     const [filiais, categorias] = await Promise.all([
-        fetchOptional("/filiais", mock.filiais),
-        fetchOptional("/categorias", mock.categorias)
+        fetchJson("/filiais"),
+        fetchJson("/categorias")
     ]);
     state.apiFiliais = filiais;
     populateSelect(els.filialSelect, filiais, "Todas");
@@ -291,10 +239,7 @@ async function loadSelects() {
 async function loadProducts() {
     const category = els.categoriaSelect.value;
     const url = `/produtos?categoria=${encodeURIComponent(category)}`;
-    const products = await fetchOptional(
-        url,
-        mock.produtos.filter((item) => !category || item.categoria === category).map((item) => item.produto)
-    );
+    const products = await fetchJson(url);
     populateSelect(els.produtoSelect, products, "Todos");
 }
 
@@ -308,76 +253,25 @@ function populateSelect(select, values, defaultLabel) {
     });
 }
 
-function applyLocalSales(data) {
-    mock.sales.forEach((sale) => {
-        const product = mock.produtos.find((item) => item.produto === sale.produto);
-        const category = product?.categoria || "Outros";
-        const gross = sale.quantidade * (product?.preco || 0);
-        const discount = Math.min(sale.desconto, gross);
-        const net = gross - discount;
-        const period = monthKey(sale.data);
-
-        let month = data.monthly.find((item) => item.periodo === period);
-        if (!month) {
-            month = { periodo: period, receita_bruta: 0, receita_liquida: 0, desconto_total: 0, quantidade_vendida: 0, quantidade_de_vendas: 0 };
-            data.monthly.push(month);
-        }
-        month.receita_bruta += gross;
-        month.receita_liquida += net;
-        month.desconto_total += discount;
-        month.quantidade_vendida += sale.quantidade;
-        month.quantidade_de_vendas += 1;
-
-        let branch = data.branches.find((item) => (item.filial || item.nome_filial) === sale.filial);
-        if (!branch) {
-            branch = { filial: sale.filial, receita_liquida: 0, margem_bruta_percentual: 30 };
-            data.branches.push(branch);
-        }
-        branch.receita_liquida += net;
-
-        let categoryRow = data.categories.find((item) => item.categoria === category);
-        if (!categoryRow) {
-            categoryRow = { categoria: category, quantidade_vendida: 0, receita_liquida: 0, margem_bruta_percentual: 30 };
-            data.categories.push(categoryRow);
-        }
-        categoryRow.quantidade_vendida += sale.quantidade;
-        categoryRow.receita_liquida += net;
-
-        let productRow = data.products.find((item) => item.produto === sale.produto);
-        if (!productRow) {
-            productRow = { produto: sale.produto, categoria: category, quantidade_vendida: 0, receita_liquida: 0 };
-            data.products.push(productRow);
-        }
-        productRow.quantidade_vendida += sale.quantidade;
-        productRow.receita_liquida += net;
-    });
-
-    data.monthly.sort((a, b) => a.periodo.localeCompare(b.periodo));
-    data.kpis.receitaBruta = sumRows(data.monthly, "receita_bruta");
-    data.kpis.receitaLiquida = sumRows(data.monthly, "receita_liquida");
-    data.kpis.vendas = sumRows(data.monthly, "quantidade_de_vendas");
-    data.kpis.produtosVendidos = sumRows(data.monthly, "quantidade_vendida");
-}
-
 async function loadDashboardData() {
-    state.usingMock = false;
+    state.dbUnavailable = false;
     const params = buildParams();
     const query = params.toString();
     const [
         receitaBruta, receitaLiquida, custoTotal, margemBruta, margemPercentual,
         monthly, branches, categories, products, catalogProducts, clients
     ] = await Promise.all([
-        fetchOptional(`/faturamento?${query}`, String(sumRows(mock.monthly, "receita_bruta"))),
-        fetchOptional(`/receita_liquida?${query}`, String(sumRows(mock.monthly, "receita_liquida"))),
-        fetchOptional(`/custo_total?${query}`, "4360000"),
-        fetchOptional(`/margem_bruta?${query}`, "1783000"),
-        fetchOptional(`/margem_bruta_percentual?${query}`, "32.6"),
-        fetchOptional(`/pergunta_faturamento?${query}`, clone(mock.monthly)),
-        fetchOptional(`/pergunta_receita_liquida?${query}`, clone(mock.branchRevenue)),
-        fetchOptional(`/pergunta_receita_liquida_categoria?${query}`, clone(mock.categoryRevenue)),
-        fetchOptional(`/pergunta_produtos_vendidos?${query}`, clone(mock.produtos)),
-        fetchOptional(`/produtos_detalhados?categoria=${encodeURIComponent(els.categoriaSelect.value)}`, clone(mock.produtos)),
-        fetchOptional("/clientes", clone(mock.clientes))
+        fetchJson(`/faturamento?${query}`),
+        fetchJson(`/receita_liquida?${query}`),
+        fetchJson(`/custo_total?${query}`),
+        fetchJson(`/margem_bruta?${query}`),
+        fetchJson(`/margem_bruta_percentual?${query}`),
+        fetchJson(`/pergunta_faturamento?${query}`),
+        fetchJson(`/pergunta_receita_liquida?${query}`),
+        fetchJson(`/pergunta_receita_liquida_categoria?${query}`),
+        fetchJson(`/pergunta_produtos_vendidos?${query}`),
+        fetchJson(`/produtos_detalhados?categoria=${encodeURIComponent(els.categoriaSelect.value)}`),
+        fetchJson("/clientes")
     ]);
 
     const normalizedProducts = products.map((item) => ({
@@ -396,7 +290,7 @@ async function loadDashboardData() {
             margemPercentual: numberFromApi(margemPercentual),
             vendas: sumRows(monthly, "quantidade_de_vendas"),
             produtosVendidos: sumRows(monthly, "quantidade_vendida"),
-            totalClientes: mock.clientes.length
+            totalClientes: clients.length
         },
         monthly: clone(monthly),
         branches: clone(branches),
@@ -407,19 +301,10 @@ async function loadDashboardData() {
     state.apiClients = clients;
     state.data.catalogProducts = catalogProducts;
     state.data.clients = clients;
-    state.data.kpis.totalClientes = clients.length;
-    if (state.usingMock) {
-        applyLocalSales(state.data);
-    }
-    showMockNotice();
+    showDbNotice();
 }
 
 function renderRoles() {
-    els.roleSelect.innerHTML = state.users.map((user) => {
-        const role = roleProfiles[user.roleId];
-        return `<option value="${user.id}">${user.name} - ${role.name}</option>`;
-    }).join("");
-    els.roleSelect.value = state.currentUserId;
     updateRoleDescription();
 }
 
@@ -427,7 +312,9 @@ function updateRoleDescription() {
     const user = getUser();
     const role = getRole(user);
     const scope = role.forcedFilial ? ` Escopo: ${role.forcedFilial}.` : "";
-    els.roleDescription.textContent = `Usuario logado: ${user.name} (${role.name}). ${role.description}${scope}`;
+    if (els.roleDescription) {
+        els.roleDescription.innerHTML = `${user.name}<br><strong>${role.name}</strong><br>${role.description}${scope}`;
+    }
     els.filialSelect.disabled = Boolean(role.forcedFilial);
     if (role.forcedFilial) {
         els.filialSelect.value = role.forcedFilial;
@@ -435,6 +322,9 @@ function updateRoleDescription() {
 }
 
 async function authenticateSelectedUser() {
+    if (!els.roleSelect || !els.rolePassword) {
+        return true;
+    }
     const nextUser = getUser(els.roleSelect.value);
     if (nextUser.status !== "Ativo") {
         setRoleMessage("Acesso negado", "error");
@@ -442,29 +332,20 @@ async function authenticateSelectedUser() {
         return false;
     }
 
-    if (state.usingMockUsers) {
-        if (els.rolePassword.value !== nextUser.password) {
-            setRoleMessage("Senha incorreta", "error");
-            els.roleSelect.value = state.currentUserId;
-            els.rolePassword.value = "";
-            return false;
-        }
-    } else {
-        try {
-            await fetchJsonWithOptions("/auth/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    id: nextUser.id,
-                    password: els.rolePassword.value
-                })
-            });
-        } catch (error) {
-            setRoleMessage(error.message, "error");
-            els.roleSelect.value = state.currentUserId;
-            els.rolePassword.value = "";
-            return false;
-        }
+    try {
+        await fetchJsonWithOptions("/auth/login-perfil", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                id: nextUser.id,
+                password: els.rolePassword.value
+            })
+        });
+    } catch (error) {
+        setRoleMessage(error.message, "error");
+        els.roleSelect.value = state.currentUserId;
+        els.rolePassword.value = "";
+        return false;
     }
     state.currentUserId = nextUser.id;
     els.rolePassword.value = "";
@@ -477,7 +358,9 @@ async function authenticateSelectedUser() {
 }
 
 function renderNav() {
-    els.mainNav.innerHTML = screens.map((screen) => {
+    const role = getRole();
+    const allowedScreens = screens.filter((screen) => role.permissions.includes(screen.permission));
+    els.mainNav.innerHTML = allowedScreens.map((screen) => {
         const active = screen.id === state.currentScreenId ? "active" : "";
         return `
             <button class="nav-button ${active}" type="button" data-screen="${screen.id}">
@@ -514,7 +397,7 @@ function renderKpis(keys) {
         produtos: card("Produtos vendidos", integer.format(data.kpis.produtosVendidos), "Unidades comercializadas"),
         filial: card("Melhor filial", bestBranch?.filial || bestBranch?.nome_filial || "-", currency.format(bestBranch?.receita_liquida || 0)),
         categoria: card("Melhor categoria", bestCategory?.categoria || "-", currency.format(bestCategory?.receita_liquida || 0)),
-        clientes: card("Total de clientes", integer.format(data.kpis.totalClientes), "Clientes mock/API"),
+        clientes: card("Total de clientes", integer.format(data.kpis.totalClientes), "Clientes cadastrados"),
         margem: card("Margem bruta", currency.format(data.kpis.margemBruta), `${data.kpis.margemPercentual.toFixed(1)}% medio`)
     };
     return `<section class="kpi-grid">${keys.map((key) => available[key]).join("")}</section>`;
@@ -587,14 +470,11 @@ function renderGeneralDashboard() {
 
 function renderSalesDashboard() {
     const monthly = state.data.monthly;
-    const user = getUser();
-    const rows = can("vendas:ver:todas")
-        ? monthly
-        : monthly.map((item) => ({ ...item, quantidade_de_vendas: Math.max(1, Math.round(item.quantidade_de_vendas * 0.08)), receita_liquida: item.receita_liquida * 0.08, receita_bruta: item.receita_bruta * 0.08, desconto_total: item.desconto_total * 0.08 }));
+    const rows = monthly;
     els.viewRoot.innerHTML = `
         ${renderKpis(["receita", "vendas", "ticket", "produtos"])}
         <section class="chart-grid">
-            ${chartCard(can("vendas:ver:todas") ? "Vendas por mes" : `Vendas de ${user.name}`, "chartSalesMonth")}
+            ${chartCard("Vendas por mes", "chartSalesMonth")}
             ${chartCard("Evolucao da receita", "chartSalesRevenue")}
         </section>
         <section class="data-card">
@@ -646,7 +526,7 @@ function renderCategoryDashboard() {
 
 function renderProducts() {
     const selectedCategory = els.categoriaSelect.value;
-    const source = state.data?.catalogProducts?.length ? state.data.catalogProducts : mock.produtos;
+    const source = state.data?.catalogProducts || [];
     const products = source.filter((item) => !selectedCategory || item.categoria === selectedCategory);
     els.viewRoot.innerHTML = `
         <section class="data-card">
@@ -659,7 +539,7 @@ function renderProducts() {
 }
 
 function renderClients() {
-    const clients = state.data?.clients?.length ? state.data.clients : mock.clientes;
+    const clients = state.data?.clients || [];
     els.viewRoot.innerHTML = `
         ${renderKpis(["clientes", "vendas", "ticket", "receita"])}
         <section class="data-card">
@@ -695,7 +575,7 @@ function renderUserManagement() {
                 <tr>
                     <td>${user.name}</td>
                     <td>${user.email}</td>
-                    <td><span class="badge">${roleProfiles[user.roleId].name}</span></td>
+                    <td><span class="badge">${getRole(user).name}</span></td>
                     <td>${user.status}</td>
                     <td>
                         ${canEdit ? `<button class="primary-button" type="button" data-edit-user="${user.id}">Editar status</button>` : ""}
@@ -709,12 +589,14 @@ function renderUserManagement() {
 
 function renderNewSale() {
     const role = getRole();
-    const clients = state.apiClients.length ? state.apiClients : mock.clientes;
-    const products = state.apiProducts.length ? state.apiProducts : mock.produtos;
-    const filiais = state.apiFiliais.length ? state.apiFiliais : mock.filiais;
+    const clients = state.apiClients;
+    const products = state.apiProducts;
+    const filiais = state.apiFiliais;
+    const missingData = !clients.length || !products.length || !filiais.length;
     els.viewRoot.innerHTML = `
         <section class="data-card">
             <h3>Nova Venda</h3>
+            ${missingData ? `<p class="muted">Cadastre clientes, produtos e filiais no banco antes de criar uma venda.</p>` : ""}
             <form id="saleForm" class="form-grid">
                 <label>Cliente<select name="cliente">${clients.map((client) => `<option>${client.nome}</option>`).join("")}</select></label>
                 <label>Produto<select name="produto">${products.map((product) => `<option>${product.produto}</option>`).join("")}</select></label>
@@ -722,7 +604,7 @@ function renderNewSale() {
                 <label>Desconto<input name="desconto" type="number" min="0" step="0.01" value="0" required></label>
                 <label>Filial<select name="filial" ${role.forcedFilial ? "disabled" : ""}>${filiais.map((filial) => `<option ${filial === role.forcedFilial ? "selected" : ""}>${filial}</option>`).join("")}</select></label>
                 <label>Data da venda<input name="data" type="date" required></label>
-                <div class="form-actions"><button class="primary-button" type="submit">Cadastrar venda</button><span id="saleFormMessage" class="form-message"></span></div>
+                <div class="form-actions"><button class="primary-button" type="submit" ${missingData ? "disabled" : ""}>Cadastrar venda</button><span id="saleFormMessage" class="form-message"></span></div>
             </form>
         </section>
     `;
@@ -761,7 +643,7 @@ function renderDenied() {
         <section class="denied">
             <h2>Acesso negado</h2>
             <p>O perfil <strong>${role.name}</strong> nao possui permissao para acessar <strong>${screen.label}</strong>.</p>
-            <p class="muted">Troque o usuario na Barra de Perfis ou selecione uma tela permitida para continuar.</p>
+            <p class="muted">Entre com um usuario autorizado ou selecione uma tela permitida para continuar.</p>
         </section>
     `;
 }
@@ -795,8 +677,19 @@ function render() {
 }
 
 async function refreshData() {
-    await loadDashboardData();
-    render();
+    try {
+        await loadDashboardData();
+        render();
+    } catch (error) {
+        state.dbUnavailable = true;
+        showDbNotice();
+        els.viewRoot.innerHTML = `
+            <section class="denied">
+                <h2>Banco indisponivel</h2>
+                <p>${error.message}</p>
+            </section>
+        `;
+    }
 }
 
 async function handleCreateUser(event) {
@@ -813,14 +706,6 @@ async function handleCreateUser(event) {
         roleId: form.get("roleId"),
         status: form.get("status")
     };
-
-    if (state.usingMockUsers) {
-        state.users.push({ id: `u-${Date.now()}`, ...user });
-        showFormMessage(message, "Usuario cadastrado localmente", "success");
-        renderRoles();
-        renderUserManagement();
-        return;
-    }
 
     try {
         const createdUser = await fetchJsonWithOptions("/usuarios", {
@@ -859,12 +744,6 @@ async function handleCreateSale(event) {
         showFormMessage(message, "Quantidade invalida", "error");
         return;
     }
-    if (state.usingMock) {
-        mock.sales.push(sale);
-        showFormMessage(message, "Venda cadastrada localmente e dashboards atualizados", "success");
-        await refreshData();
-        return;
-    }
     try {
         await fetchJsonWithOptions("/vendas", {
             method: "POST",
@@ -886,12 +765,6 @@ async function handleTableActions(event) {
             return;
         }
         const userId = removeButton.dataset.removeUser;
-        if (state.usingMockUsers) {
-            state.users = state.users.filter((user) => user.id !== userId);
-            renderRoles();
-            renderUserManagement();
-            return;
-        }
         try {
             await fetchJsonWithOptions(`/usuarios/${encodeURIComponent(userId)}`, {
                 method: "DELETE"
@@ -909,12 +782,6 @@ async function handleTableActions(event) {
         }
         const user = getUser(editButton.dataset.editUser);
         const nextStatus = user.status === "Ativo" ? "Inativo" : "Ativo";
-        if (state.usingMockUsers) {
-            user.status = nextStatus;
-            renderRoles();
-            renderUserManagement();
-            return;
-        }
         try {
             const updatedUser = await fetchJsonWithOptions(`/usuarios/${encodeURIComponent(user.id)}/status`, {
                 method: "PATCH",
@@ -931,14 +798,18 @@ async function handleTableActions(event) {
 }
 
 function bindEvents() {
-    els.btnTrocarUsuario.addEventListener("click", async () => {
-        if (await authenticateSelectedUser()) {
-            await refreshData();
-        }
-    });
-    els.roleSelect.addEventListener("change", () => {
-        setRoleMessage("Digite a senha para trocar de usuario", "success");
-    });
+    if (els.btnTrocarUsuario) {
+        els.btnTrocarUsuario.addEventListener("click", async () => {
+            if (await authenticateSelectedUser()) {
+                await refreshData();
+            }
+        });
+    }
+    if (els.roleSelect) {
+        els.roleSelect.addEventListener("change", () => {
+            setRoleMessage("Digite a senha para trocar de usuario", "success");
+        });
+    }
     els.mainNav.addEventListener("click", (event) => {
         const button = event.target.closest("[data-screen]");
         if (button) {
@@ -955,23 +826,42 @@ function bindEvents() {
     });
     els.viewRoot.addEventListener("click", handleTableActions);
     els.categoriaSelect.addEventListener("change", async () => {
-        await loadProducts();
-        await refreshData();
+        try {
+            await loadProducts();
+            await refreshData();
+        } catch (error) {
+            state.dbUnavailable = true;
+            showDbNotice();
+            els.viewRoot.innerHTML = `
+                <section class="denied">
+                    <h2>Banco indisponivel</h2>
+                    <p>${error.message}</p>
+                </section>
+            `;
+        }
     });
     els.btnAplicar.addEventListener("click", refreshData);
 }
 
 async function init() {
-    await loadUsers();
+    await loadCurrentUser();
+    if (can("usuarios:gerenciar")) {
+        await loadUsers();
+    }
     renderRoles();
     bindEvents();
     await loadSelects();
     await refreshData();
-    setRoleMessage("Sessao iniciada como Administrador", "success");
 }
 
 init().catch((error) => {
     console.error("Erro ao iniciar interface:", error);
-    state.usingMock = true;
-    showMockNotice();
+    state.dbUnavailable = true;
+    showDbNotice();
+    els.viewRoot.innerHTML = `
+        <section class="denied">
+            <h2>Banco indisponivel</h2>
+            <p>${error.message}</p>
+        </section>
+    `;
 });

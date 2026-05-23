@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-O backend é implementado em Flask e atua como API JSON para a interface web. Ele também renderiza a página inicial por meio de `base.html`.
+O backend é implementado em Flask e atua como API JSON para a interface web. Ele também renderiza a tela de login (`login.html`) e a área principal autenticada (`base.html`).
 
 ## Arquivos Principais
 
@@ -36,6 +36,7 @@ DB_PORT=5782
 DB_NAME=bi_comercial_db
 DB_USER=bi_user
 DB_PASSWORD=bi_pass
+SECRET_KEY=troque-em-producao
 ```
 
 ## Conexão com Banco
@@ -77,14 +78,18 @@ result = session.execute(query, params).fetchone()
 
 | Rota | Método | Função |
 |---|---|---|
-| `/` | GET | Renderiza a interface e testa banco. |
+| `/login` | GET | Renderiza a tela de login. |
+| `/` | GET | Renderiza a interface autenticada e testa banco. |
+| `/logout` | GET | Limpa a sessão e volta para o login. |
+| `/auth/me` | GET | Retorna o usuário em sessão. |
 | `/filiais` | GET | Lista filiais. |
 | `/categorias` | GET | Lista categorias. |
 | `/produtos` | GET | Lista nomes de produtos. |
 | `/produtos_detalhados` | GET | Lista catálogo detalhado. |
 | `/clientes` | GET | Lista clientes. |
 | `/usuarios` | GET | Lista usuários da aplicação. |
-| `/auth/login` | POST | Autentica usuário por id e senha. |
+| `/auth/login` | POST | Autentica usuário por e-mail e senha. |
+| `/auth/login-perfil` | POST | Troca usuário em sessão por id e senha. |
 | `/usuarios` | POST | Cria usuário. |
 | `/usuarios/<id>/status` | PATCH | Atualiza status do usuário. |
 | `/usuarios/<id>` | DELETE | Remove usuário. |
@@ -103,7 +108,7 @@ result = session.execute(query, params).fetchone()
 |---|---|
 | Filtros e cadastros | `get_filiais`, `get_produtos`, `get_categorias`, `get_clientes`. |
 | KPIs e perguntas | `get_faturamento`, `get_receitaLiquida`, `pergunta_faturamento`, etc. |
-| Escrita e validação | `criar_venda`, `criar_usuario`, `autenticar_usuario`, `remover_usuario`. |
+| Escrita e validação | `criar_venda`, `criar_usuario`, `autenticar_usuario`, `autenticar_usuario_por_email`, `remover_usuario`. |
 
 ## Tratamento de Erros
 
@@ -119,7 +124,7 @@ O endpoint `/auth/login` recebe:
 
 ```json
 {
-  "id": "u-1",
+  "email": "admin@aurora.local",
   "password": "admin123"
 }
 ```
@@ -130,14 +135,14 @@ Retorna:
 {
   "id": "u-1",
   "dbId": 1,
-  "name": "Marina Costa",
+  "name": "Admin Comercial",
   "email": "admin@aurora.local",
-  "roleId": "administrador",
+  "roleId": "admin_comercial",
   "status": "Ativo"
 }
 ```
 
-Limitação atual: não há token, cookie de sessão ou middleware de autorização backend.
+O login grava o usuário na sessão Flask. Rotas de API usam `api_login_required`; ações como gestão de usuários e cadastro de vendas também validam permissões por perfil em `ROLE_PERMISSIONS`.
 
 ## Cadastro de Venda
 
@@ -162,7 +167,7 @@ O projeto não possui logs estruturados próprios. Em desenvolvimento, erros apa
 ## Recomendações
 
 - Mover senhas para hash.
-- Adicionar `Flask-Login` ou JWT.
-- Criar decorators de permissão nas rotas sensíveis.
+- Adicionar `Flask-Login`, sessão server-side ou JWT conforme o alvo de deploy.
+- Consolidar decorators de permissão reutilizáveis nas rotas sensíveis.
 - Adicionar testes com `pytest`.
 - Criar migrations.

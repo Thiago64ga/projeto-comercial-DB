@@ -12,7 +12,7 @@
 
 ## Professor Orientador
 
-**Prof. Dr. Douglas José Mendonça**
+**Prof. Dr. Felipe **
 
 ---
 

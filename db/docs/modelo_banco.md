@@ -26,9 +26,11 @@ O script `cria_banco.sql` executa as seguintes ações principais:
 - `comercial.dim_categoria`
 - `comercial.dim_produto`
 - `comercial.dim_cliente`
+- `comercial.dim_canal_venda`
+- `comercial.app_usuario`
+- `comercial.log_operacao`
 - `comercial.fato_vendas`
 - `comercial.fato_itens_venda`
-- `comercial.app_usuario`
 
 Além das tabelas, o script cria a materialized view:
 
@@ -416,7 +418,27 @@ View simples de leitura com venda, data, filial, cliente, pedido, pagamento, sta
 
 A função desses relacionamentos é manter a consistência entre os dados analíticos e permitir consultas multidimensionais, como análise de vendas por período, filial, categoria e produto.
 
-## 10. Conclusão
+## 10. Atualizacao Tecnica
+
+A versao atual do banco possui 10 tabelas base. As novas tabelas sao `dim_canal_venda`, para classificar vendas por canal, e `log_operacao`, para auditoria.
+
+Triggers implementadas:
+
+- `trg_calcular_totais_item`: calcula totais dos itens.
+- `trg_validar_venda`: valida descontos e receita liquida.
+- `trg_auditar_usuario`: audita operacoes em usuarios.
+- `trg_auditar_venda`: audita operacoes em vendas.
+
+Rotinas implementadas:
+
+- `fn_calcular_receita_liquida`.
+- `fn_obter_ou_criar_data`.
+- `fn_resumo_comercial_subqueries`.
+- `pr_refresh_kpis`.
+
+Consultas com subqueries: `fn_resumo_comercial_subqueries` usa subqueries para contar clientes, produtos acima do preco medio, vendas acima do ticket medio e a data da ultima venda.
+
+## 11. Conclusão
 
 A modelagem descrita no script SQL é adequada para um projeto de análise comercial. Ela separa claramente dimensões e fatos, garante integridade referencial, e usa tipos de dados apropriados para valores financeiros e datas.
 

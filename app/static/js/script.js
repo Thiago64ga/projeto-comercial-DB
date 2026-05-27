@@ -7,7 +7,8 @@ const roleProfiles = {
             "dashboard:geral", "dashboard:vendas", "dashboard:filial", "dashboard:categoria",
             "produtos:ver", "clientes:ver", "filiais:ver", "vendas:ver:todas", "vendas:criar",
             "usuarios:gerenciar", "usuarios:criar", "usuarios:editar", "usuarios:remover",
-            "permissoes:ver", "relatorios:ver", "dados:todos"
+            "permissoes:ver", "relatorios:ver", "dados:todos", "dados:criar", "categorias:ver",
+            "rotinas:ver"
         ]
     },
     gerente_comercial: {
@@ -16,14 +17,14 @@ const roleProfiles = {
         forcedFilial: "",
         permissions: [
             "dashboard:geral", "dashboard:vendas", "dashboard:filial", "dashboard:categoria",
-            "produtos:ver", "clientes:ver", "filiais:ver", "vendas:ver:todas", "relatorios:ver"
+            "produtos:ver", "clientes:ver", "filiais:ver", "categorias:ver", "vendas:ver:todas", "relatorios:ver"
         ]
     },
     operador_comercial: {
         name: "Operador Comercial",
         description: "Pode adicionar vendas, visualizar produtos, clientes e dashboards permitidos.",
         forcedFilial: "",
-        permissions: ["dashboard:vendas", "produtos:ver", "clientes:ver", "vendas:ver:proprias", "vendas:criar"]
+        permissions: ["dashboard:vendas", "produtos:ver", "clientes:ver", "filiais:ver", "categorias:ver", "vendas:ver:proprias", "vendas:criar", "dados:criar"]
     },
     leitura_comercial: {
         name: "Leitura Comercial",
@@ -44,8 +45,11 @@ const screens = [
     { id: "nova-venda", label: "Nova Venda", icon: "+", permission: "vendas:criar" },
     { id: "produtos", label: "Produtos", icon: "P", permission: "produtos:ver" },
     { id: "clientes", label: "Clientes", icon: "CL", permission: "clientes:ver" },
+    { id: "filiais", label: "Filiais", icon: "F", permission: "filiais:ver" },
+    { id: "categorias", label: "Categorias", icon: "C", permission: "categorias:ver" },
     { id: "gerenciar-usuarios", label: "Gerenciar Usuarios", icon: "U", permission: "usuarios:gerenciar" },
     { id: "permissoes", label: "Permissoes", icon: "A", permission: "permissoes:ver" },
+    { id: "rotinas-sql", label: "Rotinas SQL", icon: "SQL", permission: "rotinas:ver" },
     { id: "relatorios", label: "Relatorios", icon: "R", permission: "relatorios:ver" }
 ];
 
@@ -64,8 +68,14 @@ const state = {
     users: [],
     currentUser: null,
     apiFiliais: [],
+    apiBranchesDetailed: [],
+    apiCategoriesDetailed: [],
     apiProducts: [],
     apiClients: [],
+    apiChannels: [],
+    apiChannelsDetailed: [],
+    apiSales: [],
+    dbRoutines: null,
     dbUnavailable: false
 };
 
@@ -165,7 +175,7 @@ async function fetchJson(path) {
     const response = await fetch(path);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(data.erro || `Falha em ${path}`);
+        throw new Error(data.error || data.erro || data.message || `Falha em ${path}`);
     }
     return data;
 }
@@ -174,9 +184,33 @@ async function fetchJsonWithOptions(path, options) {
     const response = await fetch(path, options);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(data.erro || `Falha em ${path}`);
+        throw new Error(data.error || data.erro || data.message || `Falha em ${path}`);
     }
     return data;
+}
+
+function unwrapApi(response) {
+    return response && response.success ? response.data : response;
+}
+
+async function loadChannels() {
+    try {
+        const channels = unwrapApi(await fetchJson("/api/canais"));
+        return channels.map((channel) => (
+            typeof channel === "string"
+                ? { id: channel, nome: channel, descricao: "", ativo: true }
+                : channel
+        ));
+    } catch (error) {
+        console.warn("Falha ao carregar /api/canais. Tentando rota legada /canais.", error);
+        const legacyChannels = await fetchJson("/canais");
+        return legacyChannels.map((channel) => ({
+            id: channel,
+            nome: channel,
+            descricao: "",
+            ativo: true
+        }));
+    }
 }
 
 async function loadUsers() {
@@ -225,12 +259,40 @@ function clone(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
+function toNumberOrZero(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getReferenceId(collection, rawValue) {
+    const numericValue = toNumberOrZero(rawValue);
+    if (numericValue) {
+        return numericValue;
+    }
+    const textValue = String(rawValue || "").trim();
+    const match = collection.find((item) => (
+        String(item.id) === textValue ||
+        item.nome === textValue ||
+        item.produto === textValue ||
+        item.nome_canal === textValue ||
+        item.nome_filial === textValue
+    ));
+    return match ? toNumberOrZero(match.id) : 0;
+}
+
 async function loadSelects() {
-    const [filiais, categorias] = await Promise.all([
+    const [filiais, categorias, canais, filiaisDetalhadas, categoriasDetalhadas] = await Promise.all([
         fetchJson("/filiais"),
-        fetchJson("/categorias")
+        fetchJson("/categorias"),
+        loadChannels(),
+        fetchJson("/api/filiais").then(unwrapApi),
+        fetchJson("/api/categorias").then(unwrapApi)
     ]);
     state.apiFiliais = filiais;
+    state.apiBranchesDetailed = filiaisDetalhadas;
+    state.apiCategoriesDetailed = categoriasDetalhadas;
+    state.apiChannelsDetailed = canais;
+    state.apiChannels = canais.map((channel) => channel.nome);
     populateSelect(els.filialSelect, filiais, "Todas");
     populateSelect(els.categoriaSelect, categorias, "Todas");
     await loadProducts();
@@ -259,7 +321,7 @@ async function loadDashboardData() {
     const query = params.toString();
     const [
         receitaBruta, receitaLiquida, custoTotal, margemBruta, margemPercentual,
-        monthly, branches, categories, products, catalogProducts, clients
+        monthly, branches, categories, products, catalogProducts, clients, subquerySummary
     ] = await Promise.all([
         fetchJson(`/faturamento?${query}`),
         fetchJson(`/receita_liquida?${query}`),
@@ -271,7 +333,8 @@ async function loadDashboardData() {
         fetchJson(`/pergunta_receita_liquida_categoria?${query}`),
         fetchJson(`/pergunta_produtos_vendidos?${query}`),
         fetchJson(`/produtos_detalhados?categoria=${encodeURIComponent(els.categoriaSelect.value)}`),
-        fetchJson("/clientes")
+        fetchJson("/api/clientes").then(unwrapApi),
+        fetchJson("/resumo_subqueries")
     ]);
 
     const normalizedProducts = products.map((item) => ({
@@ -297,11 +360,34 @@ async function loadDashboardData() {
         categories: clone(categories),
         products: normalizedProducts
     };
-    state.apiProducts = catalogProducts;
-    state.apiClients = clients;
     state.data.catalogProducts = catalogProducts;
     state.data.clients = clients;
+    state.data.subquerySummary = subquerySummary;
     showDbNotice();
+}
+
+async function loadRecentSales() {
+    state.apiSales = await fetchJson("/vendas?limite=50");
+}
+
+async function loadReferenceData() {
+    const [clients, products, branches, categories, channels] = await Promise.all([
+        fetchJson("/api/clientes").then(unwrapApi),
+        fetchJson("/api/produtos").then(unwrapApi),
+        fetchJson("/api/filiais").then(unwrapApi),
+        fetchJson("/api/categorias").then(unwrapApi),
+        loadChannels()
+    ]);
+    state.apiClients = clients;
+    state.apiProducts = products;
+    state.apiBranchesDetailed = branches;
+    state.apiCategoriesDetailed = categories;
+    state.apiChannelsDetailed = channels;
+    state.apiChannels = channels.map((channel) => channel.nome);
+}
+
+async function loadDatabaseRoutines() {
+    state.dbRoutines = unwrapApi(await fetchJson("/api/banco/rotinas"));
 }
 
 function renderRoles() {
@@ -390,6 +476,7 @@ function renderKpis(keys) {
     const bestBranch = topBy(data.branches, "receita_liquida");
     const bestCategory = topBy(data.categories, "receita_liquida");
     const ticket = data.kpis.vendas ? data.kpis.receitaLiquida / data.kpis.vendas : 0;
+    const subqueries = data.subquerySummary || {};
     const available = {
         receita: card("Receita total", currency.format(data.kpis.receitaLiquida), "Receita liquida no periodo"),
         vendas: card("Quantidade de vendas", integer.format(data.kpis.vendas), "Pedidos concluidos"),
@@ -398,7 +485,8 @@ function renderKpis(keys) {
         filial: card("Melhor filial", bestBranch?.filial || bestBranch?.nome_filial || "-", currency.format(bestBranch?.receita_liquida || 0)),
         categoria: card("Melhor categoria", bestCategory?.categoria || "-", currency.format(bestCategory?.receita_liquida || 0)),
         clientes: card("Total de clientes", integer.format(data.kpis.totalClientes), "Clientes cadastrados"),
-        margem: card("Margem bruta", currency.format(data.kpis.margemBruta), `${data.kpis.margemPercentual.toFixed(1)}% medio`)
+        margem: card("Margem bruta", currency.format(data.kpis.margemBruta), `${data.kpis.margemPercentual.toFixed(1)}% medio`),
+        subqueries: card("Vendas acima da media", integer.format(subqueries.vendasAcimaTicketMedio || 0), "Consulta com subqueries")
     };
     return `<section class="kpi-grid">${keys.map((key) => available[key]).join("")}</section>`;
 }
@@ -452,7 +540,7 @@ function renderGeneralDashboard() {
     const branches = state.data.branches;
     const categories = state.data.categories;
     els.viewRoot.innerHTML = `
-        ${renderKpis(["receita", "vendas", "ticket", "produtos", "filial", "categoria", "clientes", "margem"])}
+        ${renderKpis(["receita", "vendas", "ticket", "produtos", "filial", "categoria", "clientes", "subqueries"])}
         <section class="chart-grid">
             ${chartCard("Evolucao da receita", "chartRevenueEvolution")}
             ${chartCard("Receita por filial", "chartBranchRevenue")}
@@ -526,9 +614,25 @@ function renderCategoryDashboard() {
 
 function renderProducts() {
     const selectedCategory = els.categoriaSelect.value;
-    const source = state.data?.catalogProducts || [];
+    const source = state.data?.catalogProducts || state.apiProducts || [];
     const products = source.filter((item) => !selectedCategory || item.categoria === selectedCategory);
+    const canCreateData = can("dados:criar");
+    const categories = [...new Set(source.map((item) => item.categoria).filter(Boolean))];
     els.viewRoot.innerHTML = `
+        ${canCreateData ? `
+            <section class="data-card">
+                <h3>Cadastrar Produto</h3>
+                <form id="productForm" class="form-grid">
+                    <label>Produto<input name="produto" required></label>
+                    <label>Categoria<select name="categoria" required>${categories.map((category) => `<option>${category}</option>`).join("")}</select></label>
+                    <label>Marca<input name="marca"></label>
+                    <label>Preco<input name="preco" type="number" min="0.01" step="0.01" required></label>
+                    <label>Custo<input name="custo" type="number" min="0" step="0.01" required></label>
+                    <label>Status<select name="status"><option>ATIVO</option><option>INATIVO</option></select></label>
+                    <div class="form-actions"><button class="primary-button" type="submit">Cadastrar produto</button><span id="productFormMessage" class="form-message"></span></div>
+                </form>
+            </section>
+        ` : ""}
         <section class="data-card">
             <h3>Produtos</h3>
             ${table(["Produto", "Categoria", "Marca", "Preco", "Status", "Receita"], products.map((item) => `
@@ -539,13 +643,76 @@ function renderProducts() {
 }
 
 function renderClients() {
-    const clients = state.data?.clients || [];
+    const clients = state.data?.clients || state.apiClients || [];
+    const canCreateData = can("dados:criar");
     els.viewRoot.innerHTML = `
         ${renderKpis(["clientes", "vendas", "ticket", "receita"])}
+        ${canCreateData ? `
+            <section class="data-card">
+                <h3>Cadastrar Cliente</h3>
+                <form id="clientForm" class="form-grid">
+                    <label>Nome<input name="nome" required></label>
+                    <label>Tipo<select name="tipo"><option>B2C</option><option>B2B</option></select></label>
+                    <label>Cidade<input name="cidade"></label>
+                    <label>UF<input name="uf" maxlength="2"></label>
+                    <label>Cadastro<input name="cadastro" type="date" required></label>
+                    <div class="form-actions"><button class="primary-button" type="submit">Cadastrar cliente</button><span id="clientFormMessage" class="form-message"></span></div>
+                </form>
+            </section>
+        ` : ""}
         <section class="data-card">
             <h3>Clientes</h3>
             ${table(["Cliente", "Tipo", "Cidade", "UF", "Cadastro"], clients.map((item) => `
                 <tr><td>${item.nome}</td><td><span class="badge">${item.tipo}</span></td><td>${item.cidade}</td><td>${item.uf}</td><td>${new Date(`${item.cadastro}T00:00:00`).toLocaleDateString("pt-BR")}</td></tr>
+            `))}
+        </section>
+    `;
+}
+
+function renderBranches() {
+    const canCreateData = can("dados:criar");
+    const branches = state.apiBranchesDetailed || [];
+    els.viewRoot.innerHTML = `
+        ${canCreateData ? `
+            <section class="data-card">
+                <h3>Cadastrar Filial</h3>
+                <form id="branchForm" class="form-grid">
+                    <label>Nome<input name="nome" required></label>
+                    <label>Cidade<input name="cidade" required></label>
+                    <label>UF<input name="uf" maxlength="2" required></label>
+                    <label>Regiao<input name="regiao" required></label>
+                    <label>Porte<select name="porte"><option>Pequena</option><option>Media</option><option>Grande</option></select></label>
+                    <div class="form-actions"><button class="primary-button" type="submit">Cadastrar filial</button><span id="branchFormMessage" class="form-message"></span></div>
+                </form>
+            </section>
+        ` : ""}
+        <section class="data-card">
+            <h3>Filiais</h3>
+            ${table(["Nome", "Cidade", "UF", "Regiao", "Porte"], branches.map((item) => `
+                <tr><td>${item.nome}</td><td>${item.cidade}</td><td>${item.uf}</td><td>${item.regiao}</td><td>${item.porte}</td></tr>
+            `))}
+        </section>
+    `;
+}
+
+function renderCategories() {
+    const canCreateData = can("dados:criar");
+    const categories = state.apiCategoriesDetailed || [];
+    els.viewRoot.innerHTML = `
+        ${canCreateData ? `
+            <section class="data-card">
+                <h3>Cadastrar Categoria</h3>
+                <form id="categoryForm" class="form-grid">
+                    <label>Nome<input name="nome" required></label>
+                    <label>Descricao<input name="descricao"></label>
+                    <div class="form-actions"><button class="primary-button" type="submit">Cadastrar categoria</button><span id="categoryFormMessage" class="form-message"></span></div>
+                </form>
+            </section>
+        ` : ""}
+        <section class="data-card">
+            <h3>Categorias</h3>
+            ${table(["Nome", "Descricao"], categories.map((item) => `
+                <tr><td>${item.nome}</td><td>${item.descricao || "-"}</td></tr>
             `))}
         </section>
     `;
@@ -591,21 +758,40 @@ function renderNewSale() {
     const role = getRole();
     const clients = state.apiClients;
     const products = state.apiProducts;
-    const filiais = state.apiFiliais;
-    const missingData = !clients.length || !products.length || !filiais.length;
+    const filiais = state.apiBranchesDetailed || [];
+    const channels = state.apiChannelsDetailed || [];
+    const sales = state.apiSales;
+    const missingData = !clients.length || !products.length || !filiais.length || !channels.length;
     els.viewRoot.innerHTML = `
         <section class="data-card">
             <h3>Nova Venda</h3>
             ${missingData ? `<p class="muted">Cadastre clientes, produtos e filiais no banco antes de criar uma venda.</p>` : ""}
             <form id="saleForm" class="form-grid">
-                <label>Cliente<select name="cliente">${clients.map((client) => `<option>${client.nome}</option>`).join("")}</select></label>
-                <label>Produto<select name="produto">${products.map((product) => `<option>${product.produto}</option>`).join("")}</select></label>
+                <label>Cliente<select name="id_cliente">${clients.map((client) => `<option value="${client.id}">${client.nome}</option>`).join("")}</select></label>
+                <label>Produto<select name="id_produto">${products.map((product) => `<option value="${product.id}" data-preco="${product.preco}">${product.produto}</option>`).join("")}</select></label>
                 <label>Quantidade<input name="quantidade" type="number" min="1" value="1" required></label>
                 <label>Desconto<input name="desconto" type="number" min="0" step="0.01" value="0" required></label>
-                <label>Filial<select name="filial" ${role.forcedFilial ? "disabled" : ""}>${filiais.map((filial) => `<option ${filial === role.forcedFilial ? "selected" : ""}>${filial}</option>`).join("")}</select></label>
-                <label>Data da venda<input name="data" type="date" required></label>
+                <label>Filial<select name="id_filial" ${role.forcedFilial ? "disabled" : ""}>${filiais.map((filial) => `<option value="${filial.id}" ${filial.nome === role.forcedFilial ? "selected" : ""}>${filial.nome}</option>`).join("")}</select></label>
+                <label>Canal<select name="id_canal">${channels.map((channel) => `<option value="${channel.id}">${channel.nome}</option>`).join("")}</select></label>
+                <label>Data da venda<input name="data_venda" type="date" required></label>
                 <div class="form-actions"><button class="primary-button" type="submit" ${missingData ? "disabled" : ""}>Cadastrar venda</button><span id="saleFormMessage" class="form-message"></span></div>
             </form>
+        </section>
+        <section class="data-card">
+            <h3>Vendas cadastradas</h3>
+            ${table(["Pedido", "Data", "Cliente", "Produto", "Filial", "Canal", "Responsavel", "Quantidade", "Valor"], sales.map((sale) => `
+                <tr>
+                    <td>${sale.numeroPedido}</td>
+                    <td>${new Date(`${sale.data}T00:00:00`).toLocaleDateString("pt-BR")}</td>
+                    <td>${sale.cliente || "-"}</td>
+                    <td>${sale.produtos || "-"}</td>
+                    <td>${sale.filial}</td>
+                    <td>${sale.canal || "-"}</td>
+                    <td>${sale.responsavel}</td>
+                    <td>${integer.format(sale.quantidade)}</td>
+                    <td>${currency.format(sale.valorLiquido)}</td>
+                </tr>
+            `))}
         </section>
     `;
 }
@@ -636,6 +822,43 @@ function renderReports() {
     ]);
 }
 
+function renderSqlRoutines() {
+    const routines = state.dbRoutines || {
+        totalTriggers: 0,
+        totalRotinas: 0,
+        requisitoTriggersOk: false,
+        requisitoRotinasOk: false,
+        triggers: [],
+        rotinas: []
+    };
+    els.viewRoot.innerHTML = `
+        <section class="kpi-grid">
+            ${card("Triggers", integer.format(routines.totalTriggers), routines.requisitoTriggersOk ? "Requisito minimo atendido" : "Minimo exigido: 4")}
+            ${card("Procedures/functions", integer.format(routines.totalRotinas), routines.requisitoRotinasOk ? "Requisito minimo atendido" : "Minimo exigido: 4")}
+            ${card("SQL unico", "db/banco_completo.sql", "Script consolidado do projeto")}
+        </section>
+        <section class="data-card">
+            <h3>Executar rotinas do banco</h3>
+            <div class="form-actions">
+                <button class="primary-button" type="button" data-run-routines-demo>Executar demo</button>
+                <span id="routinesMessage" class="form-message"></span>
+            </div>
+        </section>
+        <section class="data-card">
+            <h3>Triggers cadastradas</h3>
+            ${table(["Nome", "Tabela", "Momento", "Evento"], routines.triggers.map((item) => `
+                <tr><td>${item.nome}</td><td>${item.tabela}</td><td>${item.momento}</td><td>${item.evento}</td></tr>
+            `))}
+        </section>
+        <section class="data-card">
+            <h3>Procedures e functions</h3>
+            ${table(["Nome", "Tipo", "Retorno"], routines.rotinas.map((item) => `
+                <tr><td>${item.nome}</td><td>${item.tipo}</td><td>${item.retorno || "-"}</td></tr>
+            `))}
+        </section>
+    `;
+}
+
 function renderDenied() {
     const role = getRole();
     const screen = getScreen();
@@ -661,8 +884,11 @@ function renderCurrentScreen() {
         "nova-venda": renderNewSale,
         produtos: renderProducts,
         clientes: renderClients,
+        filiais: renderBranches,
+        categorias: renderCategories,
         "gerenciar-usuarios": renderUserManagement,
         permissoes: renderPermissions,
+        "rotinas-sql": renderSqlRoutines,
         relatorios: renderReports
     };
     renderers[state.currentScreenId]();
@@ -679,6 +905,11 @@ function render() {
 async function refreshData() {
     try {
         await loadDashboardData();
+        await loadRecentSales();
+        await loadReferenceData();
+        if (can("rotinas:ver")) {
+            await loadDatabaseRoutines();
+        }
         render();
     } catch (error) {
         state.dbUnavailable = true;
@@ -694,72 +925,296 @@ async function refreshData() {
 
 async function handleCreateUser(event) {
     event.preventDefault();
+    const formElement = event.target.closest("form");
     const message = document.getElementById("userFormMessage");
+    if (!formElement) {
+        showFormMessage(message, "Formulario de usuario nao encontrado.", "error");
+        return;
+    }
     if (!assertPermission("usuarios:criar", message)) {
         return;
     }
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const user = {
-        name: form.get("name").trim(),
+        nome: form.get("name").trim(),
         email: form.get("email").trim(),
-        password: form.get("password"),
-        roleId: form.get("roleId"),
-        status: form.get("status")
+        senha: form.get("password"),
+        perfil: form.get("roleId"),
+        ativo: form.get("status") === "Ativo"
     };
+    if (!user.nome || !user.email || !user.senha || !user.perfil) {
+        showFormMessage(message, "Campo obrigatorio nao informado.", "error");
+        return;
+    }
+    console.log("Clique no botao cadastrar usuario");
+    console.log("Dados enviados:", user);
 
     try {
-        const createdUser = await fetchJsonWithOptions("/usuarios", {
+        showFormMessage(message, "Cadastrando usuario...", "success");
+        const response = await fetchJsonWithOptions("/api/usuarios", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(user)
         });
-        state.users.push(createdUser);
-        showFormMessage(message, "Usuario cadastrado no banco", "success");
+        formElement.reset();
+        await loadUsers();
         renderRoles();
         renderUserManagement();
+        showFormMessage(document.getElementById("userFormMessage"), response.message || "Usuario cadastrado com sucesso.", "success");
     } catch (error) {
-        showFormMessage(message, error.message, "error");
+        showFormMessage(message, `Erro ao cadastrar usuario: ${error.message}`, "error");
     }
 }
 
 async function handleCreateSale(event) {
     event.preventDefault();
+    const formElement = event.target.closest("form");
     const message = document.getElementById("saleFormMessage");
+    if (!formElement) {
+        showFormMessage(message, "Formulario de venda nao encontrado.", "error");
+        return;
+    }
     if (!assertPermission("vendas:criar", message)) {
         return;
     }
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const role = getRole();
+    const productSelect = formElement.querySelector('select[name="id_produto"]');
+    const selectedProduct = productSelect?.selectedOptions?.[0];
+    const precoUnitario = Number(selectedProduct?.dataset?.preco || 0);
+    const rawFilial = form.get("id_filial");
+    const rawCliente = form.get("id_cliente");
+    const rawCanal = form.get("id_canal");
+    const rawProduto = form.get("id_produto");
+    const canalId = getReferenceId(state.apiChannelsDetailed, rawCanal);
     const sale = {
-        id: `sale-${Date.now()}`,
-        vendedorId: state.currentUserId,
-        cliente: form.get("cliente"),
-        produto: form.get("produto"),
-        quantidade: Number(form.get("quantidade")),
-        desconto: Number(form.get("desconto")),
-        filial: role.forcedFilial || form.get("filial"),
-        data: form.get("data")
+        id_filial: getReferenceId(state.apiBranchesDetailed, rawFilial),
+        id_cliente: getReferenceId(state.apiClients, rawCliente),
+        id_canal: canalId || rawCanal,
+        canal: rawCanal,
+        data_venda: form.get("data_venda"),
+        itens: [
+            {
+                id_produto: getReferenceId(state.apiProducts, rawProduto),
+                quantidade: Number(form.get("quantidade")),
+                preco_unitario: precoUnitario,
+                desconto: Number(form.get("desconto"))
+            }
+        ]
     };
-    if (!sale.quantidade || sale.quantidade < 1) {
+    console.log("Dados enviados:", sale);
+    if (!sale.itens[0].quantidade || sale.itens[0].quantidade < 1) {
         showFormMessage(message, "Quantidade invalida", "error");
         return;
     }
+    if (!sale.itens[0].preco_unitario || sale.itens[0].preco_unitario <= 0) {
+        showFormMessage(message, "Preco unitario invalido", "error");
+        return;
+    }
+    const missingFields = [];
+    if (!sale.id_filial) missingFields.push("filial");
+    if (!sale.id_cliente) missingFields.push("cliente");
+    if (!sale.id_canal) missingFields.push("canal");
+    if (!sale.data_venda) missingFields.push("data da venda");
+    if (!sale.itens[0].id_produto) missingFields.push("produto");
+    if (missingFields.length) {
+        showFormMessage(message, `Campo obrigatorio nao informado: ${missingFields.join(", ")}.`, "error");
+        console.warn("Campos invalidos da venda:", {
+            missingFields,
+            rawValues: { rawFilial, rawCliente, rawCanal, rawProduto, data_venda: sale.data_venda },
+            sale
+        });
+        return;
+    }
     try {
-        await fetchJsonWithOptions("/vendas", {
+        showFormMessage(message, "Registrando venda...", "success");
+        const response = await fetchJsonWithOptions("/api/vendas", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(sale)
         });
-        showFormMessage(message, "Venda cadastrada no banco e dashboards atualizados", "success");
+        formElement.reset();
         await refreshData();
+        if (state.currentScreenId === "nova-venda") {
+            showFormMessage(document.getElementById("saleFormMessage"), response.message || "Venda registrada com sucesso.", "success");
+        }
+    } catch (error) {
+        showFormMessage(message, `Erro ao registrar venda: ${error.message}`, "error");
+    }
+}
+
+async function handleCreateProduct(event) {
+    event.preventDefault();
+    const formElement = event.target.closest("form");
+    const message = document.getElementById("productFormMessage");
+    if (!formElement) {
+        showFormMessage(message, "Formulario de produto nao encontrado.", "error");
+        return;
+    }
+    if (!assertPermission("dados:criar", message)) {
+        return;
+    }
+    const form = new FormData(formElement);
+    const product = {
+        produto: form.get("produto").trim(),
+        categoria: form.get("categoria"),
+        marca: form.get("marca").trim(),
+        preco: Number(form.get("preco")),
+        custo: Number(form.get("custo")),
+        status: form.get("status")
+    };
+
+    try {
+        await fetchJsonWithOptions("/produtos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(product)
+        });
+        formElement.reset();
+        await loadProducts();
+        await refreshData();
+        if (state.currentScreenId === "produtos") {
+            showFormMessage(document.getElementById("productFormMessage"), "Produto cadastrado e lista atualizada", "success");
+        }
     } catch (error) {
         showFormMessage(message, error.message, "error");
+    }
+}
+
+async function handleCreateClient(event) {
+    event.preventDefault();
+    const formElement = event.target.closest("form");
+    const message = document.getElementById("clientFormMessage");
+    if (!formElement) {
+        showFormMessage(message, "Formulario de cliente nao encontrado.", "error");
+        return;
+    }
+    if (!assertPermission("dados:criar", message)) {
+        return;
+    }
+    const form = new FormData(formElement);
+    const client = {
+        nome: form.get("nome").trim(),
+        tipo: form.get("tipo"),
+        cidade: form.get("cidade").trim(),
+        uf: form.get("uf").trim(),
+        cadastro: form.get("cadastro")
+    };
+
+    try {
+        await fetchJsonWithOptions("/clientes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(client)
+        });
+        formElement.reset();
+        await refreshData();
+        if (state.currentScreenId === "clientes") {
+            showFormMessage(document.getElementById("clientFormMessage"), "Cliente cadastrado e lista atualizada", "success");
+        }
+    } catch (error) {
+        showFormMessage(message, error.message, "error");
+    }
+}
+
+async function handleCreateBranch(event) {
+    event.preventDefault();
+    const formElement = event.target.closest("form");
+    const message = document.getElementById("branchFormMessage");
+    if (!formElement) {
+        showFormMessage(message, "Formulario de filial nao encontrado.", "error");
+        return;
+    }
+    if (!assertPermission("dados:criar", message)) {
+        return;
+    }
+    const form = new FormData(formElement);
+    const branch = {
+        nome: form.get("nome").trim(),
+        cidade: form.get("cidade").trim(),
+        uf: form.get("uf").trim(),
+        regiao: form.get("regiao").trim(),
+        porte: form.get("porte")
+    };
+
+    try {
+        await fetchJsonWithOptions("/api/filiais", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(branch)
+        });
+        formElement.reset();
+        await loadSelects();
+        await refreshData();
+        if (state.currentScreenId === "filiais") {
+            showFormMessage(document.getElementById("branchFormMessage"), "Filial cadastrada com sucesso.", "success");
+        }
+    } catch (error) {
+        showFormMessage(message, `Erro ao cadastrar filial: ${error.message}`, "error");
+    }
+}
+
+async function handleCreateCategory(event) {
+    event.preventDefault();
+    const formElement = event.target.closest("form");
+    const message = document.getElementById("categoryFormMessage");
+    if (!formElement) {
+        showFormMessage(message, "Formulario de categoria nao encontrado.", "error");
+        return;
+    }
+    if (!assertPermission("dados:criar", message)) {
+        return;
+    }
+    const form = new FormData(formElement);
+    const category = {
+        nome: form.get("nome").trim(),
+        descricao: form.get("descricao").trim()
+    };
+
+    try {
+        await fetchJsonWithOptions("/api/categorias", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(category)
+        });
+        formElement.reset();
+        await loadSelects();
+        await refreshData();
+        if (state.currentScreenId === "categorias") {
+            showFormMessage(document.getElementById("categoryFormMessage"), "Categoria cadastrada com sucesso.", "success");
+        }
+    } catch (error) {
+        showFormMessage(message, `Erro ao cadastrar categoria: ${error.message}`, "error");
     }
 }
 
 async function handleTableActions(event) {
     const removeButton = event.target.closest("[data-remove-user]");
     const editButton = event.target.closest("[data-edit-user]");
+    const runRoutinesButton = event.target.closest("[data-run-routines-demo]");
+
+    if (runRoutinesButton) {
+        const message = document.getElementById("routinesMessage");
+        try {
+            showFormMessage(message, "Executando procedures e functions...", "success");
+            const response = await fetchJsonWithOptions("/api/banco/rotinas/executar-demo", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({})
+            });
+            await loadDatabaseRoutines();
+            renderSqlRoutines();
+            const result = response.data || {};
+            showFormMessage(
+                document.getElementById("routinesMessage"),
+                `${response.message} Receita exemplo: ${currency.format(result.receitaLiquidaExemplo || 0)}.`,
+                "success"
+            );
+        } catch (error) {
+            showFormMessage(message, `Erro ao executar rotinas: ${error.message}`, "error");
+        }
+        return;
+    }
     if (removeButton) {
         if (!assertPermission("usuarios:remover", document.querySelector(".form-message"))) {
             return;
@@ -769,7 +1224,7 @@ async function handleTableActions(event) {
             await fetchJsonWithOptions(`/usuarios/${encodeURIComponent(userId)}`, {
                 method: "DELETE"
             });
-            state.users = state.users.filter((user) => user.id !== userId);
+            await loadUsers();
         } catch (error) {
             setRoleMessage(error.message, "error");
         }
@@ -789,6 +1244,7 @@ async function handleTableActions(event) {
                 body: JSON.stringify({ status: nextStatus })
             });
             Object.assign(user, updatedUser);
+            await loadUsers();
         } catch (error) {
             setRoleMessage(error.message, "error");
         }
@@ -823,6 +1279,18 @@ function bindEvents() {
         if (event.target.id === "saleForm") {
             handleCreateSale(event);
         }
+        if (event.target.id === "productForm") {
+            handleCreateProduct(event);
+        }
+        if (event.target.id === "clientForm") {
+            handleCreateClient(event);
+        }
+        if (event.target.id === "branchForm") {
+            handleCreateBranch(event);
+        }
+        if (event.target.id === "categoryForm") {
+            handleCreateCategory(event);
+        }
     });
     els.viewRoot.addEventListener("click", handleTableActions);
     els.categoriaSelect.addEventListener("change", async () => {
@@ -851,6 +1319,10 @@ async function init() {
     renderRoles();
     bindEvents();
     await loadSelects();
+    await loadReferenceData();
+    if (can("rotinas:ver")) {
+        await loadDatabaseRoutines();
+    }
     await refreshData();
 }
 

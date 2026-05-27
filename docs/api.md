@@ -85,6 +85,21 @@ Retorna lista de categorias.
 
 Retorna nomes de produtos, opcionalmente filtrados por categoria.
 
+### `POST /produtos`
+
+Cria produto comercial. Requer permissao `dados:criar`.
+
+```json
+{
+  "produto": "Webcam Full HD",
+  "categoria": "Perifericos",
+  "marca": "CamPro",
+  "preco": 199.9,
+  "custo": 110,
+  "status": "ATIVO"
+}
+```
+
 ### `GET /produtos_detalhados?categoria=Hardware`
 
 Retorna catálogo detalhado.
@@ -120,6 +135,20 @@ Retorna clientes.
 ```
 
 ## Endpoints de Usuários
+
+### `POST /clientes`
+
+Cria cliente comercial. Requer permissao `dados:criar`.
+
+```json
+{
+  "nome": "Cliente Novo",
+  "tipo": "B2B",
+  "cidade": "Sao Paulo",
+  "uf": "SP",
+  "cadastro": "2026-05-27"
+}
+```
 
 ### `GET /usuarios`
 
@@ -235,6 +264,7 @@ Request:
   "quantidade": 2,
   "desconto": 10,
   "filial": "Filial Campinas",
+  "canal": "Loja Fisica",
   "data": "2026-05-20"
 }
 ```
@@ -249,6 +279,18 @@ Response:
   "desconto": 10.0,
   "valor_liquido": 249.8
 }
+```
+
+### `GET /vendas?limite=50`
+
+Lista vendas recentes com pedido, cliente, produto, filial, canal, responsavel, quantidade e valor liquido.
+
+### `GET /canais`
+
+Lista canais de venda ativos usados no formulario de nova venda.
+
+```json
+["E-commerce", "Loja Fisica", "Marketplace", "Televendas"]
 ```
 
 ## Endpoints de KPIs
@@ -284,6 +326,19 @@ Retorna margem bruta.
 Retorna margem percentual média.
 
 ## Endpoints Analíticos
+
+### `GET /resumo_subqueries`
+
+Retorna indicadores calculados por subqueries no PostgreSQL.
+
+```json
+{
+  "totalClientes": 500,
+  "produtosAcimaMedia": 5,
+  "vendasAcimaTicketMedio": 2572,
+  "ultimaVenda": "2026-05-21"
+}
+```
 
 ### `GET /pergunta_faturamento`
 

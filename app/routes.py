@@ -1,4 +1,6 @@
 from functools import wraps
+from datetime import date, datetime
+from decimal import Decimal
 
 from flask import render_template, jsonify, request, redirect, session, url_for
 from app.db import get_session
@@ -8,10 +10,10 @@ from sqlalchemy import text
 ROLE_PERMISSIONS = {
     "admin_comercial": {
         "usuarios:gerenciar", "usuarios:criar", "usuarios:editar", "usuarios:remover",
-        "vendas:criar", "dados:ver", "permissoes:ver"
+        "vendas:criar", "dados:ver", "dados:criar", "permissoes:ver"
     },
     "gerente_comercial": {"dados:ver"},
-    "operador_comercial": {"dados:ver", "vendas:criar"},
+    "operador_comercial": {"dados:ver", "dados:criar", "vendas:criar"},
     "leitura_comercial": {"dados:ver"},
 }
 
@@ -45,6 +47,59 @@ def init_routes(app):
         if tem_permissao(permissao):
             return None
         return jsonify({"erro": "Acesso negado para este perfil."}), 403
+
+    def resposta_erro_banco(error):
+        sqlstate = getattr(getattr(error, "orig", None), "sqlstate", "")
+        if sqlstate == "42703":
+            return jsonify({
+                "erro": "Coluna inexistente no banco de dados. Execute db/fixes/001_add_coluna_ativo.sql ou recrie o banco com db/init/cria_banco.sql.",
+                "status": "db_schema_error"
+            }), 500
+        if sqlstate == "42P01":
+            return jsonify({
+                "erro": "Tabela inexistente no banco de dados. Execute o script de criacao do banco.",
+                "status": "db_schema_error"
+            }), 500
+        return jsonify({"erro": str(error)}), 500
+
+    def api_success(data=None, message="Operacao realizada com sucesso.", status=200):
+        return jsonify({"success": True, "message": message, "data": json_ready(data if data is not None else {})}), status
+
+    def api_error(message="Erro ao realizar operacao.", error=None, status=400):
+        return jsonify({"success": False, "message": message, "error": str(error or message)}), status
+
+    def json_ready(value):
+        if isinstance(value, Decimal):
+            return float(value)
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        if isinstance(value, list):
+            return [json_ready(item) for item in value]
+        if isinstance(value, tuple):
+            return [json_ready(item) for item in value]
+        if isinstance(value, dict):
+            return {key: json_ready(item) for key, item in value.items()}
+        return value
+
+    def executar_api(operacao, mensagem_sucesso="Operacao realizada com sucesso.", status_sucesso=200):
+        db_session = get_session()
+        try:
+            data = operacao(db_session)
+            db_session.commit()
+            return api_success(data, mensagem_sucesso, status_sucesso)
+        except ValueError as e:
+            db_session.rollback()
+            return api_error("Erro de validacao.", e, 400)
+        except Exception as e:
+            db_session.rollback()
+            sqlstate = getattr(getattr(e, "orig", None), "sqlstate", "")
+            if sqlstate in {"23505"}:
+                return api_error("Registro duplicado.", e, 409)
+            if sqlstate in {"42703", "42P01"}:
+                return api_error("Erro de estrutura do banco de dados.", e, 500)
+            return api_error("Erro ao realizar operacao.", e, 500)
+        finally:
+            db_session.close()
 
     
     @app.route("/login")
@@ -91,6 +146,202 @@ def init_routes(app):
     @api_login_required
     def usuario_atual():
         return jsonify(usuario_logado())
+
+
+    @app.route("/api/usuarios", methods=["GET"])
+    @api_login_required
+    def api_listar_usuarios():
+        return executar_api(lambda s: bi_queries.get_usuarios(s), "Usuarios carregados com sucesso.")
+
+
+    @app.route("/api/usuarios", methods=["POST"])
+    @api_login_required
+    def api_criar_usuario():
+        dados = request.get_json(silent=True) or {}
+        return executar_api(
+            lambda s: bi_queries.criar_usuario(
+                s,
+                nome=dados.get("nome") or dados.get("name"),
+                email=dados.get("email"),
+                senha=dados.get("senha") or dados.get("password") or dados.get("senha_hash"),
+                perfil=dados.get("perfil") or dados.get("roleId"),
+                status=dados.get("status") or ("Ativo" if dados.get("ativo", True) else "Inativo")
+            ),
+            "Usuario cadastrado com sucesso.",
+            201
+        )
+
+
+    @app.route("/api/usuarios/<user_id>", methods=["GET"])
+    @api_login_required
+    def api_obter_usuario(user_id):
+        return executar_api(lambda s: bi_queries.obter_usuario(s, user_id), "Usuario carregado com sucesso.")
+
+
+    @app.route("/api/usuarios/<user_id>", methods=["PUT"])
+    @api_login_required
+    def api_atualizar_usuario(user_id):
+        dados = request.get_json(silent=True) or {}
+        return executar_api(lambda s: bi_queries.atualizar_usuario(s, user_id, dados), "Usuario atualizado com sucesso.")
+
+
+    @app.route("/api/usuarios/<user_id>", methods=["DELETE"])
+    @api_login_required
+    def api_remover_usuario(user_id):
+        return executar_api(lambda s: bi_queries.remover_usuario(s, user_id) or {"id": user_id}, "Usuario removido com sucesso.")
+
+
+    @app.route("/api/produtos", methods=["GET"])
+    @api_login_required
+    def api_listar_produtos():
+        return executar_api(lambda s: bi_queries.listar_produtos_api(s), "Produtos carregados com sucesso.")
+
+
+    @app.route("/api/produtos", methods=["POST"])
+    @api_login_required
+    def api_criar_produto():
+        dados = request.get_json(silent=True) or {}
+        return executar_api(
+            lambda s: bi_queries.criar_produto(
+                s,
+                nome=dados.get("produto") or dados.get("nome"),
+                categoria=dados.get("categoria"),
+                marca=dados.get("marca"),
+                preco=dados.get("preco"),
+                custo=dados.get("custo"),
+                status=dados.get("status", "ATIVO")
+            ),
+            "Produto cadastrado com sucesso.",
+            201
+        )
+
+
+    @app.route("/api/produtos/<int:id_produto>", methods=["PUT"])
+    @api_login_required
+    def api_atualizar_produto(id_produto):
+        dados = request.get_json(silent=True) or {}
+        return executar_api(lambda s: bi_queries.atualizar_produto(s, id_produto, dados), "Produto atualizado com sucesso.")
+
+
+    @app.route("/api/produtos/<int:id_produto>", methods=["DELETE"])
+    @api_login_required
+    def api_remover_produto(id_produto):
+        return executar_api(lambda s: bi_queries.remover_produto(s, id_produto) or {"id": id_produto}, "Produto removido com sucesso.")
+
+
+    @app.route("/api/filiais", methods=["GET"])
+    @api_login_required
+    def api_listar_filiais():
+        return executar_api(lambda s: bi_queries.listar_filiais_api(s), "Filiais carregadas com sucesso.")
+
+
+    @app.route("/api/clientes", methods=["GET"])
+    @api_login_required
+    def api_listar_clientes():
+        return executar_api(lambda s: bi_queries.listar_clientes_api(s), "Clientes carregados com sucesso.")
+
+
+    @app.route("/api/filiais", methods=["POST"])
+    @api_login_required
+    def api_criar_filial():
+        dados = request.get_json(silent=True) or {}
+        return executar_api(
+            lambda s: bi_queries.criar_filial(
+                s,
+                nome=dados.get("nome") or dados.get("nome_filial"),
+                cidade=dados.get("cidade"),
+                uf=dados.get("uf"),
+                regiao=dados.get("regiao"),
+                porte=dados.get("porte")
+            ),
+            "Filial cadastrada com sucesso.",
+            201
+        )
+
+
+    @app.route("/api/categorias", methods=["GET"])
+    @api_login_required
+    def api_listar_categorias():
+        return executar_api(lambda s: bi_queries.listar_categorias_api(s), "Categorias carregadas com sucesso.")
+
+
+    @app.route("/api/canais", methods=["GET"])
+    @api_login_required
+    def api_listar_canais():
+        return executar_api(lambda s: bi_queries.listar_canais_api(s), "Canais carregados com sucesso.")
+
+
+    @app.route("/api/categorias", methods=["POST"])
+    @api_login_required
+    def api_criar_categoria():
+        dados = request.get_json(silent=True) or {}
+        return executar_api(
+            lambda s: bi_queries.criar_categoria(s, dados.get("nome") or dados.get("categoria"), dados.get("descricao")),
+            "Categoria cadastrada com sucesso.",
+            201
+        )
+
+
+    @app.route("/api/vendas", methods=["GET"])
+    @api_login_required
+    def api_listar_vendas():
+        return executar_api(lambda s: bi_queries.get_vendas_recentes(s, request.args.get("limite", 50)), "Vendas carregadas com sucesso.")
+
+
+    @app.route("/api/vendas", methods=["POST"])
+    @api_login_required
+    def api_criar_venda():
+        dados = request.get_json(silent=True) or {}
+        return executar_api(
+            lambda s: bi_queries.criar_venda_api(s, dados, usuario_logado().get("dbId")),
+            "Venda registrada com sucesso.",
+            201
+        )
+
+
+    @app.route("/api/dashboard/resumo", methods=["GET"])
+    @api_login_required
+    def api_dashboard_resumo():
+        def op(s):
+            return {
+                "receitaLiquida": s.execute(bi_queries.get_receitaLiquida()[0], {}).scalar() or 0,
+                "custoTotal": s.execute(bi_queries.get_custo_total()[0], {}).scalar() or 0,
+                "subqueries": bi_queries.get_resumo_subqueries(s)
+            }
+        return executar_api(op, "Resumo carregado com sucesso.")
+
+
+    @app.route("/api/dashboard/vendas-mes", methods=["GET"])
+    @api_login_required
+    def api_dashboard_vendas_mes():
+        return executar_api(lambda s: [dict(row._mapping) for row in s.execute(bi_queries.pergunta_faturamento()[0], {})], "Vendas por mes carregadas com sucesso.")
+
+
+    @app.route("/api/dashboard/produtos-ranking", methods=["GET"])
+    @api_login_required
+    def api_dashboard_produtos_ranking():
+        return executar_api(lambda s: [dict(row._mapping) for row in s.execute(text("SELECT * FROM comercial.fn_ranking_produtos(10)"))], "Ranking de produtos carregado com sucesso.")
+
+
+    @app.route("/api/dashboard/filiais", methods=["GET"])
+    @api_login_required
+    def api_dashboard_filiais():
+        return executar_api(lambda s: [dict(row._mapping) for row in s.execute(bi_queries.pergunta_receita_liquida()[0], {})], "Filiais carregadas com sucesso.")
+
+
+    @app.route("/api/banco/rotinas", methods=["GET"])
+    @api_login_required
+    def api_rotinas_banco():
+        return executar_api(lambda s: bi_queries.get_rotinas_banco(s), "Rotinas do banco carregadas com sucesso.")
+
+
+    @app.route("/api/banco/rotinas/executar-demo", methods=["POST"])
+    @api_login_required
+    def api_executar_demo_rotinas_banco():
+        return executar_api(
+            lambda s: bi_queries.executar_demo_rotinas_banco(s),
+            "Procedures e functions executadas com sucesso."
+        )
 
 
  
@@ -144,6 +395,37 @@ def init_routes(app):
             session.close()
 
 
+    @app.route("/produtos", methods=["POST"])
+    @api_login_required
+    def criar_produto():
+        bloqueio = exigir_permissao("dados:criar")
+        if bloqueio:
+            return bloqueio
+        session = get_session()
+        dados = request.get_json(silent=True) or {}
+
+        try:
+            produto = bi_queries.criar_produto(
+                session,
+                nome=dados.get("produto"),
+                categoria=dados.get("categoria"),
+                marca=dados.get("marca"),
+                preco=dados.get("preco"),
+                custo=dados.get("custo"),
+                status=dados.get("status", "ATIVO")
+            )
+            session.commit()
+            return jsonify(produto), 201
+        except ValueError as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 400
+        except Exception as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
     @app.route("/produtos_detalhados")
     @api_login_required
     def produtos_detalhados():
@@ -156,6 +438,7 @@ def init_routes(app):
             lista_produtos = [
                 {
                     "produto": row.produto,
+                    "id": int(row.id),
                     "categoria": row.categoria,
                     "marca": row.marca,
                     "preco": float(row.preco or 0),
@@ -184,6 +467,7 @@ def init_routes(app):
             lista_clientes = [
                 {
                     "nome": row.nome,
+                    "id": int(row.id),
                     "tipo": row.tipo,
                     "cidade": row.cidade,
                     "uf": row.uf,
@@ -194,6 +478,36 @@ def init_routes(app):
 
             return jsonify(lista_clientes)
         except Exception as e:
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/clientes", methods=["POST"])
+    @api_login_required
+    def criar_cliente():
+        bloqueio = exigir_permissao("dados:criar")
+        if bloqueio:
+            return bloqueio
+        session = get_session()
+        dados = request.get_json(silent=True) or {}
+
+        try:
+            cliente = bi_queries.criar_cliente(
+                session,
+                nome=dados.get("nome"),
+                tipo=dados.get("tipo"),
+                cidade=dados.get("cidade"),
+                uf=dados.get("uf"),
+                data_cadastro=dados.get("cadastro")
+            )
+            session.commit()
+            return jsonify(cliente), 201
+        except ValueError as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 400
+        except Exception as e:
+            session.rollback()
             return jsonify({"erro": str(e)}), 500
         finally:
             session.close()
@@ -371,7 +685,9 @@ def init_routes(app):
                 filial=dados.get("filial"),
                 quantidade=dados.get("quantidade"),
                 desconto=dados.get("desconto"),
-                data_venda=dados.get("data")
+                data_venda=dados.get("data"),
+                usuario_id=usuario_logado().get("dbId"),
+                canal=dados.get("canal", "Loja Fisica")
             )
             session.commit()
             return jsonify(venda), 201
@@ -381,6 +697,48 @@ def init_routes(app):
         except Exception as e:
             session.rollback()
             return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/vendas", methods=["GET"])
+    @api_login_required
+    def listar_vendas():
+        session = get_session()
+        try:
+            vendas = bi_queries.get_vendas_recentes(
+                session,
+                limite=request.args.get("limite", 50)
+            )
+            session.commit()
+            return jsonify(vendas)
+        except Exception as e:
+            session.rollback()
+            return jsonify({"erro": str(e)}), 500
+        finally:
+            session.close()
+
+
+    @app.route("/canais")
+    @api_login_required
+    def canais():
+        session = get_session()
+        try:
+            return jsonify(bi_queries.get_canais(session))
+        except Exception as e:
+            return resposta_erro_banco(e)
+        finally:
+            session.close()
+
+
+    @app.route("/resumo_subqueries")
+    @api_login_required
+    def resumo_subqueries():
+        session = get_session()
+        try:
+            return jsonify(bi_queries.get_resumo_subqueries(session))
+        except Exception as e:
+            return resposta_erro_banco(e)
         finally:
             session.close()
         

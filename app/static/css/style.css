@@ -150,18 +150,25 @@ select {
 .role-message,
 .form-message {
     min-height: 20px;
-    color: #fbbf24;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: #7a4a05;
+    background: #fff7d6;
     font-weight: 800;
 }
 
 .role-message.success,
 .form-message.success {
-    color: #5eead4;
+    color: #065f46;
+    background: #d1fae5;
 }
 
 .role-message.error,
 .form-message.error {
-    color: #fca5a5;
+    color: #991b1b;
+    background: #fee2e2;
 }
 
 .role-panel p {
@@ -326,6 +333,7 @@ select {
     align-items: center;
     margin-top: 14px;
     flex-wrap: wrap;
+    grid-column: 1 / -1;
 }
 
 .primary-button,

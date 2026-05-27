@@ -314,6 +314,23 @@ O projeto não possui stored procedures versionadas. A manutenção de agregados
 REFRESH MATERIALIZED VIEW comercial.vm_kpis_comercial_mensal;
 ```
 
+## Atualizacao do Modelo SQL
+
+Na versao atual do script `db/init/cria_banco.sql`, o schema `comercial` possui 10 tabelas base: `dim_calendario`, `dim_filial`, `dim_categoria`, `dim_produto`, `dim_cliente`, `dim_canal_venda`, `app_usuario`, `log_operacao`, `fato_vendas` e `fato_itens_venda`.
+
+As 4 triggers principais sao:
+
+| Trigger | Tabela | Objetivo |
+|---|---|---|
+| `trg_calcular_totais_item` | `fato_itens_venda` | Calcula `valor_total` e `custo_total`. |
+| `trg_validar_venda` | `fato_vendas` | Valida desconto e recalcula `valor_liquido`. |
+| `trg_auditar_usuario` | `app_usuario` | Grava auditoria em `log_operacao`. |
+| `trg_auditar_venda` | `fato_vendas` | Grava auditoria em `log_operacao`. |
+
+As 4 rotinas de negocio documentadas sao `fn_calcular_receita_liquida`, `fn_obter_ou_criar_data`, `fn_resumo_comercial_subqueries` e `pr_refresh_kpis`.
+
+A consulta com subqueries fica centralizada em `fn_resumo_comercial_subqueries`, que calcula total de clientes, produtos acima do preco medio, vendas acima do ticket medio e data da ultima venda. O endpoint `GET /resumo_subqueries` entrega esses dados ao dashboard geral.
+
 ## Dashboards Derivados
 
 | Dashboard | Origem |

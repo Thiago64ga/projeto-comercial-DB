@@ -85,8 +85,10 @@ result = session.execute(query, params).fetchone()
 | `/filiais` | GET | Lista filiais. |
 | `/categorias` | GET | Lista categorias. |
 | `/produtos` | GET | Lista nomes de produtos. |
+| `/produtos` | POST | Cria produto comercial. |
 | `/produtos_detalhados` | GET | Lista catálogo detalhado. |
 | `/clientes` | GET | Lista clientes. |
+| `/clientes` | POST | Cria cliente comercial. |
 | `/usuarios` | GET | Lista usuários da aplicação. |
 | `/auth/login` | POST | Autentica usuário por e-mail e senha. |
 | `/auth/login-perfil` | POST | Troca usuário em sessão por id e senha. |
@@ -94,6 +96,9 @@ result = session.execute(query, params).fetchone()
 | `/usuarios/<id>/status` | PATCH | Atualiza status do usuário. |
 | `/usuarios/<id>` | DELETE | Remove usuário. |
 | `/vendas` | POST | Registra nova venda. |
+| `/vendas` | GET | Lista vendas recentes. |
+| `/canais` | GET | Lista canais ativos. |
+| `/resumo_subqueries` | GET | Retorna indicadores calculados por subqueries. |
 | `/faturamento` | GET | Retorna faturamento bruto. |
 | `/receita_liquida` | GET | Retorna receita líquida. |
 | `/custo_total` | GET | Retorna custo total. |
@@ -109,6 +114,13 @@ result = session.execute(query, params).fetchone()
 | Filtros e cadastros | `get_filiais`, `get_produtos`, `get_categorias`, `get_clientes`. |
 | KPIs e perguntas | `get_faturamento`, `get_receitaLiquida`, `pergunta_faturamento`, etc. |
 | Escrita e validação | `criar_venda`, `criar_usuario`, `autenticar_usuario`, `autenticar_usuario_por_email`, `remover_usuario`. |
+
+Cadastros adicionais da versao atual:
+
+| Grupo | Funcoes |
+|---|---|
+| Cadastros comerciais | `criar_cliente`, `criar_produto`, `criar_venda`, `get_canais`, `get_vendas_recentes`. |
+| Subqueries | `get_resumo_subqueries`, que chama `fn_resumo_comercial_subqueries` no PostgreSQL. |
 
 ## Tratamento de Erros
 

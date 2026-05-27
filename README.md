@@ -60,6 +60,11 @@ Documentação detalhada:
 - [Backend](docs/backend.md)
 - [Frontend](docs/frontend.md)
 - [Banco de dados](docs/database.md)
+- [Modelo do banco](docs/modelo_banco.md)
+- [Triggers e procedures](docs/triggers_procedures.md)
+- [Consultas com subqueries](docs/consultas_subqueries.md)
+- [Endpoints REST](docs/endpoints_api.md)
+- [Guia de execucao](docs/guia_execucao.md)
 - [API](docs/api.md)
 - [Permissões](docs/permissoes.md)
 - [Dashboards](docs/dashboard.md)
@@ -131,7 +136,10 @@ DB_PASSWORD=bi_pass
 
 ```text
 db/init/cria_banco.sql
+db/banco_completo.sql
 ```
+
+Use `db/banco_completo.sql` quando quiser um unico arquivo contendo criacao do banco, triggers, procedures/functions, fix de schema e consultas com subqueries.
 
 6. Rode o Flask:
 
@@ -177,10 +185,74 @@ Detalhes em [permissoes.md](docs/permissoes.md).
 - Filtros globais por data, filial, categoria e produto.
 - Dashboards com Chart.js.
 - Consulta de produtos e clientes diretamente no PostgreSQL.
+- Cadastro de clientes e produtos comerciais pela interface, com mensagens de sucesso/erro e recarga automatica dos dados.
 - Registro de nova venda com persistência em tabelas fato.
 - Atualização da materialized view após cadastro de venda.
 - Gerenciamento de usuários da aplicação.
 - Aviso visual quando o banco está indisponível, sem usar dados locais como fallback.
+
+Tambem ha uma tela Rotinas SQL para listar triggers, procedures/functions e executar uma demo real das rotinas no PostgreSQL.
+
+## Banco de Dados Atualizado
+
+O schema `comercial` possui pelo menos 10 tabelas base: `dim_calendario`, `dim_filial`, `dim_categoria`, `dim_produto`, `dim_cliente`, `dim_canal_venda`, `app_usuario`, `usuarios`, `log_operacao`, `fato_vendas`, `fato_itens_venda`, `dim_fornecedor` e `movimentacao_estoque`.
+
+As triggers versionadas incluem `trg_calcular_totais_item`, `trg_validar_venda`, `trg_auditar_usuario`, `trg_auditar_venda`, `trg_usuarios_updated_at` e `trg_movimentar_estoque_venda`. Elas calculam totais de item, validam receita liquida, gravam auditoria em `log_operacao`, atualizam timestamps e registram movimentacao de estoque.
+
+As rotinas principais incluem `fn_calcular_receita_liquida`, `fn_obter_ou_criar_data`, `fn_resumo_comercial_subqueries`, `fn_faturamento_periodo`, `fn_ranking_produtos`, `pr_refresh_kpis`, `pr_cadastrar_usuario` e `pr_cadastrar_produto`. A funcao `fn_resumo_comercial_subqueries` usa subqueries para contar clientes, produtos acima do preco medio, vendas acima do ticket medio e a data da ultima venda.
+
+Cadastros operacionais:
+
+| Tela | Acao | Endpoint |
+|---|---|---|
+| Gerenciar usuarios | Criar, alterar status e remover usuario | `/usuarios` |
+| Produtos | Criar produto comercial | `POST /produtos` |
+| Clientes | Criar cliente comercial | `POST /clientes` |
+| Nova venda | Inserir venda e item de venda | `POST /vendas` |
+
+Apos cada cadastro, o frontend recarrega automaticamente listas, tabelas, KPIs e graficos afetados.
+
+## API REST Padronizada
+
+Endpoints principais:
+
+- `GET/POST /api/usuarios`
+- `GET/PUT/DELETE /api/usuarios/<id>`
+- `GET/POST /api/produtos`
+- `PUT/DELETE /api/produtos/<id>`
+- `GET/POST /api/filiais`
+- `GET/POST /api/categorias`
+- `GET/POST /api/vendas`
+- `GET /api/dashboard/resumo`
+- `GET /api/dashboard/vendas-mes`
+- `GET /api/dashboard/produtos-ranking`
+- `GET /api/dashboard/filiais`
+- `GET /api/banco/rotinas`
+- `POST /api/banco/rotinas/executar-demo`
+
+Formato de sucesso:
+
+```json
+{
+  "success": true,
+  "message": "Operacao realizada com sucesso.",
+  "data": {}
+}
+```
+
+Formato de erro:
+
+```json
+{
+  "success": false,
+  "message": "Erro ao realizar operacao.",
+  "error": "Detalhe tecnico do erro."
+}
+```
+
+## Prints
+
+Espaco reservado para prints da tela de dashboard, usuarios, produtos, vendas, filiais e categorias.
 
 ## Dashboards Existentes
 

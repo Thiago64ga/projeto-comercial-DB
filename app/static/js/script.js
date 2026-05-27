@@ -171,8 +171,17 @@ function buildParams() {
     return params;
 }
 
-async function fetchJson(path) {
-    const response = await fetch(path);
+async function requestJson(path, options = {}) {
+    let response;
+    try {
+        response = await fetch(path, {
+            credentials: "same-origin",
+            ...options
+        });
+    } catch (error) {
+        throw new Error("Nao foi possivel conectar ao servidor Flask. Verifique se o run.py esta rodando e atualize a pagina.");
+    }
+
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(data.error || data.erro || data.message || `Falha em ${path}`);
@@ -180,13 +189,12 @@ async function fetchJson(path) {
     return data;
 }
 
+async function fetchJson(path) {
+    return requestJson(path);
+}
+
 async function fetchJsonWithOptions(path, options) {
-    const response = await fetch(path, options);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(data.error || data.erro || data.message || `Falha em ${path}`);
-    }
-    return data;
+    return requestJson(path, options);
 }
 
 function unwrapApi(response) {
@@ -729,7 +737,7 @@ function renderUserManagement() {
                 <form id="userForm" class="form-grid">
                     <label>Nome<input name="name" required></label>
                     <label>Email<input name="email" type="email" required></label>
-                    <label>Senha<input name="password" type="password" required></label>
+                    <label>Senha<input name="password" type="password" minlength="6" required></label>
                     <label>Perfil/Cargo<select name="roleId">${Object.entries(roleProfiles).map(([id, role]) => `<option value="${id}">${role.name}</option>`).join("")}</select></label>
                     <label>Status<select name="status"><option>Ativo</option><option>Inativo</option></select></label>
                     <div class="form-actions"><button class="primary-button" type="submit">Cadastrar usuario</button><span id="userFormMessage" class="form-message"></span></div>
@@ -944,6 +952,10 @@ async function handleCreateUser(event) {
     };
     if (!user.nome || !user.email || !user.senha || !user.perfil) {
         showFormMessage(message, "Campo obrigatorio nao informado.", "error");
+        return;
+    }
+    if (user.senha.length < 6) {
+        showFormMessage(message, "A senha deve ter pelo menos 6 caracteres.", "error");
         return;
     }
     console.log("Clique no botao cadastrar usuario");

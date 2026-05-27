@@ -124,6 +124,34 @@ def normalizar_usuario(row):
         "ativo": row.status == "Ativo",
     }
 
+def resolver_responsavel_venda(session, usuario_id=None):
+    candidato = None
+    if usuario_id:
+        try:
+            candidato = int(str(usuario_id).replace("u-", ""))
+        except (TypeError, ValueError):
+            candidato = None
+
+    if candidato:
+        existe = session.execute(
+            text("SELECT id_usuario FROM comercial.app_usuario WHERE id_usuario = :id_usuario"),
+            {"id_usuario": candidato}
+        ).fetchone()
+        if existe:
+            return int(existe.id_usuario)
+
+    fallback = session.execute(text("""
+        SELECT id_usuario
+        FROM comercial.app_usuario
+        WHERE email = 'admin@aurora.local'
+           OR perfil = 'admin_comercial'
+        ORDER BY
+            CASE WHEN email = 'admin@aurora.local' THEN 0 ELSE 1 END,
+            id_usuario
+        LIMIT 1
+    """)).fetchone()
+    return int(fallback.id_usuario) if fallback else None
+
 def validar_usuario(nome, email, senha, perfil, status="Ativo", exigir_senha=True):
     perfil = PERFIL_ALIASES.get(perfil, perfil)
     if not nome or len(nome.strip()) < 3:
@@ -1398,15 +1426,7 @@ def criar_venda(session, cliente, produto, filial, quantidade, desconto, data_ve
     if not canal_row:
         raise ValueError("Canal de venda nao encontrado no banco de dados.")
 
-    responsavel_id = None
-    if usuario_id:
-        responsavel_id = str(usuario_id).replace("u-", "")
-        responsavel_existe = session.execute(
-            text("SELECT 1 FROM comercial.app_usuario WHERE id_usuario = :id_usuario"),
-            {"id_usuario": responsavel_id}
-        ).fetchone()
-        if not responsavel_existe:
-            raise ValueError("Usuario responsavel nao encontrado.")
+    responsavel_id = resolver_responsavel_venda(session, usuario_id)
 
     valor_bruto = float(produto_row.preco_venda) * quantidade
     desconto = min(max(desconto, 0), valor_bruto)
@@ -1572,9 +1592,7 @@ def criar_venda_api(session, dados, usuario_id=None):
         raise ValueError(f"Canal de venda nao encontrado: {detalhe_canal}.")
     id_canal = int(canal_row.id_canal)
 
-    responsavel_id = None
-    if usuario_id:
-        responsavel_id = str(usuario_id).replace("u-", "")
+    responsavel_id = resolver_responsavel_venda(session, usuario_id)
 
     id_data = session.execute(
         text("SELECT comercial.fn_obter_ou_criar_data(CAST(:data_venda AS DATE))"),

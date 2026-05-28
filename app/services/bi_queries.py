@@ -38,8 +38,7 @@ def get_filiais():
     
     sql = """
         SELECT nome_filial
-        FROM comercial.vm_kpis_comercial_mensal
-        GROUP BY nome_filial
+        FROM comercial.dim_filial
         ORDER BY nome_filial
     """
     return text(sql)
@@ -1807,9 +1806,8 @@ def get_categorias():
 
     sql = """
                 SELECT nome_categoria
-                FROM comercial.vm_kpis_comercial_mensal
-                GROUP BY nome_categoria
-                Order BY nome_categoria
+                FROM comercial.dim_categoria
+                ORDER BY nome_categoria
                 """
     return text(sql)
 
